@@ -1,0 +1,29 @@
+﻿# Python
+__pycache__/
+*.pyc
+.venv/
+.uv/
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+.next/
+out/
+
+# IDEs / OS
+.idea/
+.DS_Store
+Thumbs.db
+
+# Secrets - NUNCA commitar
+.env
+.env.local
+*.pem
+*.key
+secrets/
+
+# Docker / dados
+data/
+volumes/
+*.log
