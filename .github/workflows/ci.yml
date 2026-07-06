@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 
 on:
   push:
@@ -24,18 +24,16 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      # usado pelos testes que sobem via testcontainers no lab;
-      # no CI, o Postgres do 'services' acima está disponível em localhost:5432
       TESTCONTAINERS_RYUK_DISABLED: "true"
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
       - run: uv sync --dev
-        working-directory: src/infranoc/backend
+        working-directory: backend
       - run: uv run ruff check .
-        working-directory: src/infranoc/backend
+        working-directory: backend
       - run: uv run pytest -v
-        working-directory: src/infranoc/backend
+        working-directory: backend
 
   frontend:
     runs-on: ubuntu-latest
@@ -43,13 +41,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
-      - name: Install & build (se houver package.json)
-        working-directory: src/infranoc/web
+          node-version: "22"
+      - name: Install and build
+        working-directory: web
         run: |
-          if [ -f package.json ]; then
-            npm ci
-            npm run build
-          else
-            echo "web/ ainda sem package.json — pulando build do frontend"
-          fi
+          npm ci
+          npm run build
