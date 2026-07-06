@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: infranoc_test
+          POSTGRES_USER: infranoc
+          POSTGRES_PASSWORD: infranoc
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U infranoc"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # usado pelos testes que sobem via testcontainers no lab;
+      # no CI, o Postgres do 'services' acima está disponível em localhost:5432
+      TESTCONTAINERS_RYUK_DISABLED: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv sync --dev
+        working-directory: src/infranoc/backend
+      - run: uv run ruff check .
+        working-directory: src/infranoc/backend
+      - run: uv run pytest -v
+        working-directory: src/infranoc/backend
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install & build (se houver package.json)
+        working-directory: src/infranoc/web
+        run: |
+          if [ -f package.json ]; then
+            npm ci
+            npm run build
+          else
+            echo "web/ ainda sem package.json — pulando build do frontend"
+          fi

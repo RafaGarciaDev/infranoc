@@ -1,0 +1,21 @@
+﻿name: infranoc-dev
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: infranoc
+      POSTGRES_USER: infranoc
+      POSTGRES_PASSWORD: infranoc
+    ports: ["5432:5432"]
+    volumes: [pg:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U infranoc"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
+
+volumes:
+  pg:
