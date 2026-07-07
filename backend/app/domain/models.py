@@ -6,10 +6,13 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     String,
     Table,
+    Text,
+    UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -95,3 +98,72 @@ class AuditLog(Base):
     details: Mapped[str | None] = mapped_column(String, nullable=True)  # JSON, sem segredos
     ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+# ============================================================
+# Fase 3 — Bloco 4: Alertas vindos do AlertManager
+# ============================================================
+# Severity: critical | high | warning | info
+# Status:   firing | resolved
+# Categoria: OT | energia | ti_rede | AD  (livre, alinhado com rules do Prometheus)
+
+
+class Alert(Base, AuditMixin):
+    __tablename__ = "alerts"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "fingerprint", name="uq_alerts_tenant_fingerprint"),
+        Index("ix_alerts_tenant_status", "tenant_id", "status"),
+        Index("ix_alerts_tenant_starts_at", "tenant_id", "starts_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+
+    # Identificador estavel gerado pelo AlertManager (hash de labels).
+    fingerprint: Mapped[str] = mapped_column(String(64))
+
+    # Campos derivados das labels/annotations do payload
+    alertname: Mapped[str] = mapped_column(String(128), index=True)
+    asset: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    severity: Mapped[str] = mapped_column(String(16), index=True)
+    categoria: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    impacto_negocio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    generator_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Ciclo de vida
+    status: Mapped[str] = mapped_column(String(16), default="firing", index=True)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Payload completo pra debug / analise (labels e annotations)
+    labels: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    annotations: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    # Reconhecimento manual (ack)
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    acknowledged_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
+
+    status_history: Mapped[list["AlertStatusChange"]] = relationship(
+        back_populates="alert",
+        cascade="all, delete-orphan",
+        order_by="AlertStatusChange.changed_at",
+    )
+
+
+class AlertStatusChange(Base):
+    __tablename__ = "alert_status_changes"
+    __table_args__ = (
+        Index("ix_alert_status_changes_alert_id", "alert_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    alert_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("alerts.id", ondelete="CASCADE")
+    )
+    from_status: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    to_status: Mapped[str] = mapped_column(String(16))
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    note: Mapped[str | None] = mapped_column(String(256), nullable=True)
+
+    alert: Mapped[Alert] = relationship(back_populates="status_history")

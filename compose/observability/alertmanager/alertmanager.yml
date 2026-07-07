@@ -8,10 +8,15 @@ route:
 receivers:
   - name: fastapi-webhook
     webhook_configs:
-      # Endpoint da API FastAPI (rodando no host, fora do docker network)
-      # host.docker.internal permite ao container falar com o host
-      - url: http://host.docker.internal:8080/api/alerts/webhook
+      # Endpoint da API FastAPI (rodando no host, fora do docker network).
+      # host.docker.internal permite ao container falar com o host.
+      # Path inclui o slug do tenant (multi-tenant desde o dia 1).
+      - url: http://host.docker.internal:8080/api/alerts/webhook/valeverde
         send_resolved: true
+        http_config:
+          basic_auth:
+            username: alertmanager
+            password_file: /etc/alertmanager/secrets/webhook_password
 
 inhibit_rules:
   # Se DC ta offline, nao gerar alertas TI/AD paralelos por 15min
