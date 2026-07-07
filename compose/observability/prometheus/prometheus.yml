@@ -1,0 +1,64 @@
+# InfraNOC - Prometheus config
+# Scrapes:
+#   - windows_exporter na DC01 (Windows Server + AD + DNS)
+#   - node_exporter na MES01 (Ubuntu 24.04)
+#   - asset_simulator: 114 ativos ficticios (servers, network, PLCs, sensores, etc.)
+#   - oee_simulator: 4 linhas de producao da Vale Verde
+#
+# Nota sobre rede:
+#   As VMs vivem na VMnet10 (192.168.56.0/24). O Prometheus roda em container
+#   dentro do WSL2/Docker Desktop. Se os targets nao subirem, trocar 192.168.56.X
+#   por host.docker.internal (o Docker Desktop rotea via host, que tem placa
+#   VMnet10 em 192.168.56.1).
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: infranoc
+    site: PSA
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  # Prometheus scrapes itself (sanity)
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Windows Domain Controller (real)
+  - job_name: windows_dc01
+    static_configs:
+      - targets: ["192.168.56.10:9182"]
+        labels:
+          asset: PSA-TI-DC01
+          type: server
+          site: PSA
+          layer: TI
+
+  # Ubuntu MES (real)
+  - job_name: linux_mes01
+    static_configs:
+      - targets: ["192.168.56.30:9100"]
+        labels:
+          asset: PSA-OT-MES01
+          type: server
+          site: PSA
+          layer: OT
+
+  # 114 ativos simulados
+  - job_name: assets_sim
+    static_configs:
+      - targets: ["asset-simulator:9200"]
+
+  # OEE das 4 linhas
+  - job_name: oee_sim
+    static_configs:
+      - targets: ["oee-simulator:9201"]

@@ -1,0 +1,149 @@
+# InfraNOC - Regras de alerta com impacto de negocio
+# Todos os alertas incluem 'annotations.impacto_negocio' explicando o "e daí" pro leigo.
+# severity: critical | warning | info
+# categoria: OT | TI | REDE | ENERGIA | AD
+
+groups:
+  - name: infranoc-ot
+    interval: 30s
+    rules:
+      # Camara fria muito acima do setpoint (-18C) -> risco de perda de estoque
+      - alert: CamaraFriaAcimaDoLimite
+        expr: infranoc_temp_celsius{asset=~".*CF.*"} > -15
+        for: 3m
+        labels:
+          severity: critical
+          categoria: OT
+        annotations:
+          summary: "Camara fria {{ $labels.asset }} acima de -15C (atual {{ $value }}C)"
+          impacto_negocio: "Risco de degradacao de estoque congelado. Perdas podem atingir milhares de reais se persistir. Acionar manutencao imediatamente."
+
+      # Temperatura de pasteurizacao fora da faixa -> lote nao homologado
+      - alert: PasteurizacaoForaDaFaixa
+        expr: abs(infranoc_temp_celsius{asset=~".*PAST.*"} - 72) > 3
+        for: 2m
+        labels:
+          severity: critical
+          categoria: OT
+        annotations:
+          summary: "Pasteurizador {{ $labels.asset }} fora da faixa (72C esperado, atual {{ $value }}C)"
+          impacto_negocio: "Lote em risco de nao passar no controle de qualidade. Producao pode precisar ser descartada."
+
+      # CLP com falha reportada
+      - alert: CLPComFalha
+        expr: infranoc_plc_status == 0
+        for: 1m
+        labels:
+          severity: critical
+          categoria: OT
+        annotations:
+          summary: "CLP {{ $labels.asset }} da linha {{ $labels.line }} em falha"
+          impacto_negocio: "Automacao da linha comprometida. Producao pode parar em segundos."
+
+      # Linha de producao parada
+      - alert: LinhaDeProducaoParada
+        expr: infranoc_line_running == 0
+        for: 5m
+        labels:
+          severity: warning
+          categoria: OT
+        annotations:
+          summary: "Linha {{ $labels.line_name }} ({{ $labels.product }}) parada ha 5min"
+          impacto_negocio: "Cada hora parada representa perda de producao mensuravel no OEE. Verificar motivo em infranoc_line_stop_reason."
+
+      # OEE abaixo do aceitavel
+      - alert: OEEBaixo
+        expr: infranoc_oee_percent < 60
+        for: 15m
+        labels:
+          severity: warning
+          categoria: OT
+        annotations:
+          summary: "OEE da linha {{ $labels.line_name }} em {{ $value }}% (limite: 60%)"
+          impacto_negocio: "Eficiencia da linha muito abaixo do esperado. Investigar disponibilidade, performance ou qualidade."
+
+  - name: infranoc-energia
+    interval: 30s
+    rules:
+      # No-break em bateria = queda de energia
+      - alert: NoBreakEmBateria
+        expr: infranoc_ups_on_battery == 1
+        for: 30s
+        labels:
+          severity: critical
+          categoria: ENERGIA
+        annotations:
+          summary: "No-break {{ $labels.asset }} operando em bateria"
+          impacto_negocio: "Falta de energia detectada. Bateria tem autonomia limitada. Se persistir, sistemas criticos vao desligar."
+
+      # Bateria fraca do no-break
+      - alert: BateriaNoBreakFraca
+        expr: infranoc_ups_battery_percent < 30
+        for: 5m
+        labels:
+          severity: warning
+          categoria: ENERGIA
+        annotations:
+          summary: "No-break {{ $labels.asset }} com bateria em {{ $value }}%"
+          impacto_negocio: "Autonomia do no-break comprometida. Trocar bateria ou reduzir carga."
+
+  - name: infranoc-ti-rede
+    interval: 30s
+    rules:
+      # Qualquer ativo offline
+      - alert: AtivoOffline
+        expr: infranoc_asset_up == 0
+        for: 2m
+        labels:
+          severity: warning
+          categoria: TI
+        annotations:
+          summary: "Ativo {{ $labels.asset }} ({{ $labels.type }}) offline ha 2min"
+          impacto_negocio: "Ativo nao esta respondendo. Verificar conectividade e servico."
+
+      # CPU alto em servidor
+      - alert: CPUAltoServidor
+        expr: infranoc_cpu_percent{asset=~"PSA-TI-.*"} > 85
+        for: 10m
+        labels:
+          severity: warning
+          categoria: TI
+        annotations:
+          summary: "Servidor {{ $labels.asset }} com CPU em {{ $value }}% ha 10min"
+          impacto_negocio: "Possivel gargalo. Investigar processos e considerar escalonamento."
+
+      # Disco quase cheio
+      - alert: DiscoQuaseCheio
+        expr: infranoc_disk_percent > 90
+        for: 5m
+        labels:
+          severity: warning
+          categoria: TI
+        annotations:
+          summary: "Disco de {{ $labels.asset }} em {{ $value }}% de uso"
+          impacto_negocio: "Servidor pode parar de escrever logs, receber updates ou aceitar transacoes."
+
+      # Impressora com toner critico
+      - alert: TonerImpressoraCritico
+        expr: infranoc_printer_toner_percent < 10
+        for: 30m
+        labels:
+          severity: info
+          categoria: TI
+        annotations:
+          summary: "Toner de {{ $labels.asset }} em {{ $value }}%"
+          impacto_negocio: "Solicitar reposicao antes que a impressora pare."
+
+  - name: infranoc-ad
+    interval: 60s
+    rules:
+      # DC01 offline = sem autenticacao, sem DNS interno
+      - alert: DomainControllerOffline
+        expr: up{job="windows_dc01"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          categoria: AD
+        annotations:
+          summary: "Domain Controller PSA-TI-DC01 nao responde"
+          impacto_negocio: "Sem autenticacao de dominio, DNS interno e Group Policy. Impacto imediato em todos os usuarios."
