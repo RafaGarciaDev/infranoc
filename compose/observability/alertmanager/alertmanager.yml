@@ -1,0 +1,20 @@
+route:
+  group_by: [alertname, categoria]
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 4h
+  receiver: fastapi-webhook
+
+receivers:
+  - name: fastapi-webhook
+    webhook_configs:
+      # Endpoint da API FastAPI (rodando no host, fora do docker network)
+      # host.docker.internal permite ao container falar com o host
+      - url: http://host.docker.internal:8080/api/alerts/webhook
+        send_resolved: true
+
+inhibit_rules:
+  # Se DC ta offline, nao gerar alertas TI/AD paralelos por 15min
+  - source_matchers: [alertname=DomainControllerOffline]
+    target_matchers: [categoria=~"TI|AD"]
+    equal: [site]

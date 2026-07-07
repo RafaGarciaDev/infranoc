@@ -1,0 +1,101 @@
+# InfraNOC - Stack de Observabilidade
+
+networks:
+  observability:
+    driver: bridge
+
+volumes:
+  prometheus-data:
+  alertmanager-data:
+  loki-data:
+  grafana-data:
+
+services:
+  asset-simulator:
+    build:
+      context: ../simulators
+      dockerfile: Dockerfile
+    image: infranoc/simulator:latest
+    container_name: infranoc-asset-simulator
+    restart: unless-stopped
+    command: ["python", "asset_simulator.py"]
+    networks: [observability]
+
+  oee-simulator:
+    image: infranoc/simulator:latest
+    container_name: infranoc-oee-simulator
+    restart: unless-stopped
+    command: ["python", "oee_simulator.py"]
+    networks: [observability]
+    depends_on:
+      - asset-simulator
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: infranoc-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --web.enable-lifecycle
+      - --web.enable-admin-api
+    ports:
+      - "9090:9090"
+    networks: [observability]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    container_name: infranoc-alertmanager
+    restart: unless-stopped
+    volumes:
+      - ./observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    ports:
+      - "9093:9093"
+    networks: [observability]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  loki:
+    image: grafana/loki:3.2.1
+    container_name: infranoc-loki
+    restart: unless-stopped
+    volumes:
+      - ./observability/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/loki
+    command:
+      - -config.file=/etc/loki/loki-config.yml
+    ports:
+      - "3100:3100"
+    networks: [observability]
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: infranoc-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/provisioning/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    networks: [observability]
+    depends_on:
+      - prometheus
+      - loki
