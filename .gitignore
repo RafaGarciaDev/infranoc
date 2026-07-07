@@ -1,4 +1,4 @@
-﻿# Python
+# Python
 __pycache__/
 *.pyc
 .venv/
@@ -27,3 +27,8 @@ secrets/
 data/
 volumes/
 *.log
+
+# Backend env
+backend/.env
+# AlertManager secrets
+compose/observability/alertmanager/secrets/webhook_password

@@ -1,4 +1,4 @@
-﻿const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api";
 const TOKEN_KEY = "infranoc.access";
 
 export type LoginResult = {
@@ -41,4 +41,67 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
   if (token) headers.set("Authorization", `Bearer ${token}`);
   return fetch(`${API_URL}${path}`, { ...init, headers });
+}
+
+/* ---------------------------------------------------------
+ * Alertas (Fase 3 - Bloco 5)
+ * --------------------------------------------------------- */
+export type Severity = "critical" | "high" | "warning" | "info";
+export type AlertStatus = "firing" | "resolved";
+
+export type Alert = {
+  id: string;
+  alertname: string;
+  asset: string | null;
+  severity: string;
+  categoria: string | null;
+  summary: string | null;
+  impacto_negocio: string | null;
+  status: AlertStatus;
+  starts_at: string;
+  ends_at: string | null;
+  acknowledged_at: string | null;
+  acknowledged_by: string | null;
+};
+
+export type AlertStatusChange = {
+  from_status: string | null;
+  to_status: string;
+  changed_at: string;
+  note: string | null;
+};
+
+export type AlertDetail = Alert & {
+  fingerprint: string;
+  generator_url: string | null;
+  labels: Record<string, unknown> | null;
+  annotations: Record<string, unknown> | null;
+  status_history: AlertStatusChange[];
+};
+
+export type AlertFilter = {
+  status?: AlertStatus;
+  severity?: string;
+  categoria?: string;
+  limit?: number;
+  offset?: number;
+};
+
+export async function listAlerts(filter: AlertFilter = {}): Promise<Alert[]> {
+  const qs = new URLSearchParams();
+  if (filter.status) qs.set("status", filter.status);
+  if (filter.severity) qs.set("severity", filter.severity);
+  if (filter.categoria) qs.set("categoria", filter.categoria);
+  if (filter.limit !== undefined) qs.set("limit", String(filter.limit));
+  if (filter.offset !== undefined) qs.set("offset", String(filter.offset));
+  const q = qs.toString();
+  const res = await apiFetch(`/alerts${q ? `?${q}` : ""}`);
+  if (!res.ok) throw new Error(`Falha ao listar alertas (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function getAlert(id: string): Promise<AlertDetail> {
+  const res = await apiFetch(`/alerts/${id}`);
+  if (!res.ok) throw new Error(`Falha ao buscar alerta (HTTP ${res.status}).`);
+  return res.json();
 }
