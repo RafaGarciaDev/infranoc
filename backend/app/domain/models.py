@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    Enum as SQLEnum,
     Boolean,
     Column,
     DateTime,
@@ -13,6 +14,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
+from app.domain.enums import AssetStatus, AssetType, Criticality, Layer
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -167,3 +169,61 @@ class AlertStatusChange(Base):
     note: Mapped[str | None] = mapped_column(String(256), nullable=True)
 
     alert: Mapped[Alert] = relationship(back_populates="status_history")
+
+# ============================================================
+# Fase 4 - CMDB: Ativos
+# ============================================================
+class Asset(Base, AuditMixin):
+    __tablename__ = "assets"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_assets_tenant_name"),
+        Index("ix_assets_tenant_type", "tenant_id", "type"),
+        Index("ix_assets_tenant_site", "tenant_id", "site"),
+        Index("ix_assets_tenant_layer", "tenant_id", "layer"),
+        Index("ix_assets_tenant_status", "tenant_id", "status"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+
+    name: Mapped[str] = mapped_column(String(128))
+    display_name: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    type: Mapped[AssetType] = mapped_column(SQLEnum(AssetType, name="asset_type"))
+    layer: Mapped[Layer] = mapped_column(SQLEnum(Layer, name="asset_layer"))
+    site: Mapped[str] = mapped_column(String(32))
+    location: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
+    status: Mapped[AssetStatus] = mapped_column(
+        SQLEnum(AssetStatus, name="asset_status"),
+        default=AssetStatus.Active,
+    )
+    criticality: Mapped[Criticality] = mapped_column(
+        SQLEnum(Criticality, name="asset_criticality"),
+        default=Criticality.Medium,
+    )
+
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    hostname: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
+    owner_email: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    owner_team: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("assets.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    parent: Mapped["Asset | None"] = relationship(
+        "Asset",
+        remote_side="Asset.id",
+        back_populates="children",
+    )
+    children: Mapped[list["Asset"]] = relationship(
+        "Asset",
+        back_populates="parent",
+        cascade="save-update",
+    )
+
+    metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

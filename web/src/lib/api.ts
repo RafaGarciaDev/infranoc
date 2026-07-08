@@ -76,6 +76,7 @@ export type AlertDetail = Alert & {
   generator_url: string | null;
   labels: Record<string, unknown> | null;
   annotations: Record<string, unknown> | null;
+  asset_id?: string | null;
   status_history: AlertStatusChange[];
 };
 
@@ -103,5 +104,101 @@ export async function listAlerts(filter: AlertFilter = {}): Promise<Alert[]> {
 export async function getAlert(id: string): Promise<AlertDetail> {
   const res = await apiFetch(`/alerts/${id}`);
   if (!res.ok) throw new Error(`Falha ao buscar alerta (HTTP ${res.status}).`);
+  return res.json();
+}
+
+/* ---------------------------------------------------------
+ * Assets / CMDB (Fase 4 - Bloco 5)
+ * --------------------------------------------------------- */
+export type AssetType =
+  | "Server" | "Workstation" | "Laptop" | "NetworkSwitch" | "Router" | "Firewall"
+  | "AccessPoint" | "Printer" | "UPS" | "Generator" | "ACUnit" | "PLC" | "HMI"
+  | "SCADA" | "Sensor" | "Scale" | "Camera" | "NVR" | "Phone" | "StorageArray"
+  | "TapeLibrary" | "Other";
+
+export type Layer = "TI" | "OT" | "Physical";
+export type AssetStatusValue = "Active" | "Maintenance" | "Retired" | "Storage" | "Faulty";
+export type Criticality = "Low" | "Medium" | "High" | "Critical";
+
+export type Asset = {
+  id: string;
+  name: string;
+  display_name: string | null;
+  description: string | null;
+  type: AssetType;
+  layer: Layer;
+  site: string;
+  location: string | null;
+  status: AssetStatusValue;
+  criticality: Criticality;
+  ip_address: string | null;
+  hostname: string | null;
+  owner_email: string | null;
+  owner_team: string | null;
+  parent_id: string | null;
+  metadata_json: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string | null;
+};
+
+export type AssetSummary = {
+  id: string;
+  name: string;
+  type: AssetType;
+  status: AssetStatusValue;
+};
+
+export type AssetDetail = Asset & {
+  parent: AssetSummary | null;
+  children: AssetSummary[];
+};
+
+export type AlertOfAsset = {
+  id: string;
+  alertname: string;
+  severity: string;
+  status: string;
+  summary: string | null;
+  starts_at: string;
+  ends_at: string | null;
+};
+
+export type AssetFilter = {
+  type?: AssetType;
+  layer?: Layer;
+  site?: string;
+  status?: AssetStatusValue;
+  criticality?: Criticality;
+  search?: string;
+  limit?: number;
+  offset?: number;
+};
+
+export async function listAssets(filter: AssetFilter = {}): Promise<Asset[]> {
+  const qs = new URLSearchParams();
+  if (filter.type) qs.set("type", filter.type);
+  if (filter.layer) qs.set("layer", filter.layer);
+  if (filter.site) qs.set("site", filter.site);
+  if (filter.status) qs.set("status", filter.status);
+  if (filter.criticality) qs.set("criticality", filter.criticality);
+  if (filter.search) qs.set("search", filter.search);
+  if (filter.limit != null) qs.set("limit", String(filter.limit));
+  if (filter.offset != null) qs.set("offset", String(filter.offset));
+  const query = qs.toString();
+  const res = await apiFetch(`/assets${query ? "?" + query : ""}`);
+  if (!res.ok) throw new Error(`Falha ao listar ativos (HTTP ${res.status})`);
+  return res.json();
+}
+
+export async function getAsset(id: string): Promise<AssetDetail> {
+  const res = await apiFetch(`/assets/${id}`);
+  if (!res.ok) throw new Error(`Falha ao buscar ativo (HTTP ${res.status})`);
+  return res.json();
+}
+
+export async function listAssetAlerts(id: string, status?: string): Promise<AlertOfAsset[]> {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+  const res = await apiFetch(`/assets/${id}/alerts${qs}`);
+  if (!res.ok) throw new Error(`Falha ao listar alertas do ativo (HTTP ${res.status})`);
   return res.json();
 }

@@ -36,6 +36,13 @@ class AssetType(str, enum.Enum):
     Camera = "Camera"
     NVR = "NVR"
     Phone = "Phone"
-    Storage = "Storage"
+    StorageArray = "StorageArray"
     TapeLibrary = "TapeLibrary"
     Other = "Other"
+
+
+class Layer(str, enum.Enum):
+    """Camada do ativo dentro da fabrica."""
+    TI = "TI"
+    OT = "OT"
+    Physical = "Physical"
