@@ -492,3 +492,103 @@ input, select, textarea { font-family: inherit; }
   border: none;
   display: block;
 }
+
+/* =========================================================
+ * CMDB / Ativos (Fase 4 - Bloco 5)
+ * ========================================================= */
+:root {
+  --crit-critical: #ff5470;
+  --crit-critical-bg: #3a1120;
+  --crit-high:     #ff8a3d;
+  --crit-high-bg:  #3a2210;
+  --crit-medium:   #ffcc4d;
+  --crit-medium-bg:#3a2e0f;
+  --crit-low:      #6ba0ff;
+  --crit-low-bg:   #16264a;
+
+  --layer-ti:       #6ba0ff;
+  --layer-ti-bg:    #16264a;
+  --layer-ot:       #ff8a3d;
+  --layer-ot-bg:    #3a2210;
+  --layer-physical: #52d67a;
+  --layer-physical-bg: #123020;
+}
+
+.badge-crit-Critical { background: var(--crit-critical-bg); color: var(--crit-critical); border-color: var(--crit-critical); }
+.badge-crit-High     { background: var(--crit-high-bg);     color: var(--crit-high);     border-color: var(--crit-high); }
+.badge-crit-Medium   { background: var(--crit-medium-bg);   color: var(--crit-medium);   border-color: var(--crit-medium); }
+.badge-crit-Low      { background: var(--crit-low-bg);      color: var(--crit-low);      border-color: var(--crit-low); }
+
+.badge-layer-TI       { background: var(--layer-ti-bg);       color: var(--layer-ti);       border-color: var(--layer-ti); }
+.badge-layer-OT       { background: var(--layer-ot-bg);       color: var(--layer-ot);       border-color: var(--layer-ot); }
+.badge-layer-Physical { background: var(--layer-physical-bg); color: var(--layer-physical); border-color: var(--layer-physical); }
+
+.badge-astatus-Active      { background: var(--ok-bg); color: var(--ok); border-color: var(--ok); }
+.badge-astatus-Maintenance { background: var(--sev-warning-bg); color: var(--sev-warning); border-color: var(--sev-warning); }
+.badge-astatus-Retired     { background: var(--bg-3); color: var(--fg-2); border-color: var(--border-strong); }
+.badge-astatus-Storage     { background: var(--bg-3); color: var(--fg-1); border-color: var(--border-strong); }
+.badge-astatus-Faulty      { background: var(--sev-critical-bg); color: var(--sev-critical); border-color: var(--sev-critical); }
+
+/* Filtros topo da lista */
+.cmdb-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+.cmdb-filters select,
+.cmdb-filters input {
+  background: var(--bg-2);
+  color: var(--fg-0);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.cmdb-filters input { min-width: 220px; }
+
+/* Tabela de ativos */
+.cmdb-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.cmdb-table th, .cmdb-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-size: 13px;
+}
+.cmdb-table th { background: var(--bg-2); color: var(--fg-1); font-weight: 500; }
+.cmdb-table tbody tr { cursor: pointer; }
+.cmdb-table tbody tr:hover { background: var(--bg-3); }
+.cmdb-table .cell-name { color: var(--fg-0); font-weight: 500; }
+.cmdb-table .cell-sub  { color: var(--fg-2); font-size: 12px; margin-top: 2px; }
+
+.drawer-kv { display: grid; grid-template-columns: 130px 1fr; row-gap: 6px; font-size: 13px; }
+.drawer-kv dt { color: var(--fg-2); }
+.drawer-kv dd { color: var(--fg-0); margin: 0; }
+
+.asset-link {
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.asset-link:hover { color: var(--accent-strong); }
+
+.json-block {
+  background: var(--bg-0);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 12px;
+  color: var(--fg-1);
+  overflow-x: auto;
+}

@@ -17,6 +17,7 @@ const NAV: { section: string; items: NavEntry[] }[] = [
     items: [
       { href: "/dashboard", label: "Dashboard" },
       { href: "/alertas", label: "Alertas", requires: "alerts.read" },
+      { href: "/ativos", label: "Ativos", requires: "cmdb.read" },
       { href: "/observabilidade", label: "Observabilidade", requires: "obs.read" },
     ],
   },

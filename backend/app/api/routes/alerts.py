@@ -17,7 +17,7 @@ from sqlalchemy.orm import selectinload
 from app.core.db import get_session
 from app.core.config import settings
 from app.core.deps import require
-from app.domain.models import Alert, AlertStatusChange, Tenant
+from app.domain.models import Alert, AlertStatusChange, Asset, Tenant
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
@@ -109,6 +109,7 @@ class AlertDetailOut(AlertOut):
     generator_url: str | None
     labels: dict | None
     annotations: dict | None
+    asset_id: uuid.UUID | None = None
     status_history: list[AlertStatusChangeOut]
 
 
@@ -299,4 +300,19 @@ async def get_alert(
     ).scalar_one_or_none()
     if not row:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Alerta nao encontrado")
-    return AlertDetailOut.model_validate(row)
+
+    # cross-link com CMDB (Fase 4 - Bloco 4): se row.asset bate com Asset.name, expoe asset_id
+    asset_id_lookup: uuid.UUID | None = None
+    if row.asset:
+        asset_id_lookup = (
+            await session.execute(
+                select(Asset.id).where(
+                    Asset.tenant_id == tenant_id,
+                    Asset.name == row.asset,
+                )
+            )
+        ).scalar_one_or_none()
+
+    out = AlertDetailOut.model_validate(row)
+    out.asset_id = asset_id_lookup
+    return out

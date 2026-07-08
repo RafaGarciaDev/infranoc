@@ -19,6 +19,8 @@ services:
     container_name: infranoc-asset-simulator
     restart: unless-stopped
     command: ["python", "asset_simulator.py"]
+    ports:
+      - "9200:9200"
     networks: [observability]
 
   oee-simulator:

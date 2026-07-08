@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import Shell from "@/components/Shell";
 import {
@@ -56,6 +57,7 @@ function fmtRelative(iso: string) {
 }
 
 export default function AlertasPage() {
+  const router = useRouter();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -282,6 +284,22 @@ export default function AlertasPage() {
                       <dd style={{ fontFamily: "ui-monospace, monospace", fontSize: 12 }}>
                         {detail.fingerprint}
                       </dd>
+                      {detail.asset_id && (
+
+                        <>
+
+                          <dt>ativo (CMDB)</dt>
+
+                          <dd>
+
+                            <span className="asset-link" onClick={() => router.push(`/ativos?open=${detail.asset_id}`)}>ver ativo</span>
+
+                          </dd>
+
+                        </>
+
+                      )}
+
                       <dt>iniciado</dt>
                       <dd>{fmtDateTime(detail.starts_at)}</dd>
                       <dt>encerrado</dt>
