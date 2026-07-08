@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Shell from "@/components/Shell";
 import {
@@ -54,7 +54,7 @@ function fmtDate(iso: string | null) {
   });
 }
 
-export default function AtivosPage() {
+function AtivosInner() {
   const searchParams = useSearchParams();
 
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -284,5 +284,13 @@ export default function AtivosPage() {
         </>
       )}
     </Shell>
+  );
+}
+
+export default function AtivosPage() {
+  return (
+    <Suspense fallback={null}>
+      <AtivosInner />
+    </Suspense>
   );
 }
