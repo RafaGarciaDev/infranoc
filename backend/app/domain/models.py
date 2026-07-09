@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     String,
     Table,
     Text,
@@ -269,3 +270,17 @@ class Asset(Base, AuditMixin):
     )
 
     metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+# ============================================================
+# Fase 5 - Active Directory: auditoria de eventos da DC
+# ============================================================
+class AdAuditEvent(Base):
+    __tablename__ = "ad_audit_events"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+    event_id: Mapped[int] = mapped_column(Integer, index=True)   # 4740, 4625, 4728, 4726
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    target_sam: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    actor_sam: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    message: Mapped[str] = mapped_column(Text)
+    raw: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
