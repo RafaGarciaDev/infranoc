@@ -16,7 +16,18 @@ class Settings(BaseSettings):
     alertmanager_webhook_user: str = "alertmanager"
     alertmanager_webhook_pass: str = "changeme"
 
-    # AD (Fase 5), Prometheus (Fase 3), AI (Fase 7) entram depois
+    # AD (Fase 5)
+    ad_server: str = "192.168.56.10"
+    ad_port: int = 389
+    ad_use_ssl: bool = False
+    ad_bind_user: str = "svc_infranoc@infranoc.lab"
+    ad_bind_password: str = ""            # env INFRANOC_AD_BIND_PASSWORD
+    ad_users_ou: str = "OU=Usuarios,OU=VALEVERDE,DC=infranoc,DC=lab"
+    winrm_host: str = "192.168.56.10"
+    winrm_user: str = "INFRANOC\\svc_infranoc"
+    winrm_password: str = ""              # env INFRANOC_WINRM_PASSWORD
+    ad_audit_interval_minutes: int = 15
+    # Prometheus (Fase 3), AI (Fase 7) entram depois
 
 
 settings = Settings()
