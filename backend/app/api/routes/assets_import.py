@@ -1,8 +1,14 @@
-"""Importador de ativos a partir do asset_simulator (Fase 4 - Bloco 3).
+"""Importador de ativos (Fase 4.5).
 
-Faz scrape das metricas em formato Prometheus text e faz upsert dos ativos
-no CMDB. Mapeia o `type` do simulador para AssetType/Layer/Criticality do
-dominio, populando um catalogo rico sem input manual.
+Le metricas Prometheus do asset_simulator e faz upsert em cascata:
+  1. Sectors (1 por area)
+  2. Line assets sinteticos (1 por linha, hierarchy_level=Line)
+  3. Equipment assets (1 por metrica, hierarchy_level=Equipment, parent = line asset)
+
+Labels esperadas em cada linha `infranoc_asset_up{...}`:
+  asset, site, area, area_code (opcional), linha, sim_type
+
+Se area_code nao vier, derivamos como PSA-AREA-{area}.
 """
 
 from __future__ import annotations
@@ -21,67 +27,81 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_session
 from app.core.deps import require
 from app.domain.enums import AssetStatus, AssetType, Criticality, Layer
-from app.domain.models import Asset
+from app.domain.models import Asset, HierarchyLevel, Sector
 
 router = APIRouter(prefix="/assets", tags=["assets"])
 
 
 # =============================================================================
-# Mapping: type do simulador -> (AssetType, Layer, Criticality)
+# Mapping: sim_type do simulador -> (AssetType, Layer, Criticality)
 # =============================================================================
 TYPE_MAPPING: dict[str, tuple[AssetType, Layer, Criticality]] = {
-    "server":            (AssetType.Server,        Layer.TI,       Criticality.High),
-    "workstation":       (AssetType.Workstation,   Layer.TI,       Criticality.Low),
-    "switch":            (AssetType.NetworkSwitch, Layer.TI,       Criticality.High),
-    "ap":                (AssetType.AccessPoint,   Layer.TI,       Criticality.Medium),
-    "printer":           (AssetType.Printer,       Layer.TI,       Criticality.Low),
-    "camera":            (AssetType.Camera,        Layer.Physical, Criticality.Medium),
-    "ups":               (AssetType.UPS,           Layer.Physical, Criticality.Critical),
-    "plc":               (AssetType.PLC,           Layer.OT,       Criticality.High),
-    "sensor_temp_cf":    (AssetType.Sensor,        Layer.OT,       Criticality.Critical),
-    "sensor_temp_past":  (AssetType.Sensor,        Layer.OT,       Criticality.Critical),
-    "hmi":               (AssetType.HMI,           Layer.OT,       Criticality.High),
-    "scada":             (AssetType.SCADA,         Layer.OT,       Criticality.Critical),
+    # TI
+    "server":             (AssetType.Server,          Layer.TI,       Criticality.High),
+    "workstation":        (AssetType.Workstation,     Layer.TI,       Criticality.Low),
+    "switch":             (AssetType.NetworkSwitch,   Layer.TI,       Criticality.High),
+    "router":             (AssetType.Router,          Layer.TI,       Criticality.Critical),
+    "firewall":           (AssetType.Firewall,        Layer.TI,       Criticality.Critical),
+    "wifi_ap":            (AssetType.AccessPoint,     Layer.TI,       Criticality.Medium),
+    "printer":            (AssetType.Printer,         Layer.TI,       Criticality.Low),
+    # Infra fisica
+    "camera":             (AssetType.Camera,          Layer.Physical, Criticality.Medium),
+    "ups":                (AssetType.UPS,             Layer.Physical, Criticality.Critical),
+    "generator":          (AssetType.Generator,       Layer.Physical, Criticality.Critical),
+    "air_conditioner":    (AssetType.ACUnit,          Layer.Physical, Criticality.Medium),
+    # OT: controle
+    "plc":                (AssetType.PLC,             Layer.OT,       Criticality.High),
+    "hmi":                (AssetType.HMI,             Layer.OT,       Criticality.High),
+    "scada":              (AssetType.SCADA,           Layer.OT,       Criticality.Critical),
+    # OT: sensores
+    "sensor_temp_cf":     (AssetType.Sensor,          Layer.OT,       Criticality.Critical),
+    "sensor_temp_past":   (AssetType.Sensor,          Layer.OT,       Criticality.Critical),
+    "sensor_press":       (AssetType.Sensor,          Layer.OT,       Criticality.High),
+    "sensor_level":       (AssetType.Sensor,          Layer.OT,       Criticality.Medium),
+    "sensor_flow":        (AssetType.Sensor,          Layer.OT,       Criticality.Medium),
+    "sensor_vibr":        (AssetType.Sensor,          Layer.OT,       Criticality.Medium),
+    # OT: rotativos e vasos
+    "motor":              (AssetType.Motor,           Layer.OT,       Criticality.High),
+    "tank":               (AssetType.Tank,            Layer.OT,       Criticality.High),
+    "air_compressor":     (AssetType.AirCompressor,   Layer.OT,       Criticality.High),
+    "steam_boiler":       (AssetType.SteamBoiler,     Layer.OT,       Criticality.Critical),
+    "chilled_water_pump": (AssetType.ChilledWaterPump, Layer.OT,      Criticality.High),
+    # Laboratorio / leitores
+    "weighing_scale":     (AssetType.Scale,           Layer.OT,       Criticality.Medium),
+    "lab_scale":          (AssetType.Scale,           Layer.Physical, Criticality.Low),
+    "barcode_reader":     (AssetType.BarcodeReader,   Layer.OT,       Criticality.Low),
 }
 
 HUMAN_TYPE: dict[str, str] = {
-    "server":           "Servidor",
-    "workstation":      "Workstation",
-    "switch":           "Switch",
-    "ap":               "Access Point",
-    "printer":          "Impressora",
-    "camera":           "Camera",
-    "ups":              "UPS (No-Break)",
-    "plc":              "CLP",
-    "sensor_temp_cf":   "Sensor de Temperatura (Camara Fria)",
-    "sensor_temp_past": "Sensor de Temperatura (Pasteurizacao)",
-    "hmi":              "HMI",
-    "scada":            "SCADA",
+    "server":             "Servidor",
+    "workstation":        "Workstation",
+    "switch":             "Switch",
+    "router":             "Roteador",
+    "firewall":           "Firewall",
+    "wifi_ap":            "Access Point WiFi",
+    "printer":            "Impressora",
+    "camera":             "Camera",
+    "ups":                "UPS (No-Break)",
+    "generator":          "Gerador",
+    "air_conditioner":    "Ar Condicionado",
+    "plc":                "CLP",
+    "hmi":                "HMI",
+    "scada":              "SCADA",
+    "sensor_temp_cf":     "Sensor Temp. Camara Fria",
+    "sensor_temp_past":   "Sensor Temp. Pasteurizacao",
+    "sensor_press":       "Sensor de Pressao",
+    "sensor_level":       "Sensor de Nivel",
+    "sensor_flow":        "Sensor de Vazao",
+    "sensor_vibr":        "Sensor de Vibracao",
+    "motor":              "Motor",
+    "tank":               "Tanque",
+    "air_compressor":     "Compressor de Ar",
+    "steam_boiler":       "Caldeira",
+    "chilled_water_pump": "Bomba de Agua Gelada",
+    "weighing_scale":     "Balanca Industrial",
+    "lab_scale":          "Balanca de Laboratorio",
+    "barcode_reader":     "Leitor de Codigo de Barras",
 }
-
-
-# =============================================================================
-# Resolver de sim_type (labels do simulador sao ambiguas: 'network' cobre
-# switch+AP, 'power' e UPS, 'temp' e sensor). Desambigua pelo nome do ativo.
-# =============================================================================
-def _resolve_sim_type(name: str, raw: str) -> str:
-    n = name.upper()
-    r = raw.lower().strip()
-    if r == "network":
-        if "-SW-" in n or n.startswith("PSA-NET-SW"):
-            return "switch"
-        if "-AP-" in n or n.startswith("PSA-NET-AP"):
-            return "ap"
-        return r
-    if r == "power":
-        return "ups"
-    if r == "temp":
-        if "-CF" in n:
-            return "sensor_temp_cf"
-        if "-PAST" in n:
-            return "sensor_temp_past"
-        return "sensor_temp_cf"
-    return r
 
 
 # =============================================================================
@@ -102,7 +122,7 @@ class ImportRequest(BaseModel):
     )
 
 
-class ImportError(BaseModel):
+class ImportErrorItem(BaseModel):
     asset: str | None
     reason: str
 
@@ -114,7 +134,11 @@ class ImportResult(BaseModel):
     created: int
     updated: int
     skipped: int
-    errors: list[ImportError]
+    sectors_created: int
+    sectors_updated: int
+    lines_created: int
+    lines_updated: int
+    errors: list[ImportErrorItem]
     elapsed_ms: int
 
 
@@ -137,12 +161,24 @@ def _parse_metrics(text: str) -> list[dict[str, str]]:
         m = _METRIC_LINE.match(line)
         if not m:
             continue
-        labels_str = m.group("labels")
-        labels = {k: v for k, v in _LABEL.findall(labels_str)}
+        labels = dict(_LABEL.findall(m.group("labels")))
         if "asset" not in labels:
             continue
         out.append(labels)
     return out
+
+
+# =============================================================================
+# Helpers
+# =============================================================================
+def _short_from_asset_name(name: str) -> str | None:
+    """PSA-PAST-L1-SENS-PR-01 -> PAST."""
+    parts = name.split("-")
+    return parts[1] if len(parts) >= 2 else None
+
+
+def _line_asset_name(short: str, linha: str) -> str:
+    return f"PSA-{short}-{linha}-LINE"
 
 
 # =============================================================================
@@ -158,6 +194,7 @@ async def import_assets_from_simulator(
     tenant_id = uuid.UUID(claims["tenant_id"])
     actor = claims.get("sub")
 
+    # 1. Fetch metricas
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             r = await client.get(payload.source_url)
@@ -177,31 +214,146 @@ async def import_assets_from_simulator(
             "Verifique se o source_url aponta pro asset-simulator.",
         )
 
+    # 2. Carrega estado atual (setores, ativos)
+    sectors_by_code: dict[str, Sector] = {
+        s.code: s for s in (
+            await session.execute(select(Sector).where(Sector.tenant_id == tenant_id))
+        ).scalars().all()
+    }
+    assets_by_name: dict[str, Asset] = {
+        a.name: a for a in (
+            await session.execute(select(Asset).where(Asset.tenant_id == tenant_id))
+        ).scalars().all()
+    }
+
+    sectors_created = 0
+    sectors_updated = 0
+    lines_created = 0
+    lines_updated = 0
     created = 0
     updated = 0
     skipped = 0
-    errors: list[ImportError] = []
+    errors: list[ImportErrorItem] = []
 
-    existing_stmt = select(Asset).where(Asset.tenant_id == tenant_id)
-    existing_rows = (await session.execute(existing_stmt)).scalars().all()
-    existing_by_name = {a.name: a for a in existing_rows}
+    # 3. PASS 1: coletar setores e linhas unicas
+    unique_sectors: dict[str, dict] = {}   # area_code -> {name, area_key}
+    unique_lines: dict[str, dict] = {}     # line_name -> {sector_code, short, linha, site}
 
     for labels in rows:
         name = labels.get("asset", "").strip()
-        sim_type = labels.get("type", "").strip().lower()
+        area_key = labels.get("area", "").strip()
+        area_code = labels.get("area_code", "").strip() or (
+            f"PSA-AREA-{area_key}" if area_key else ""
+        )
+        linha = labels.get("linha", "").strip()
         site = labels.get("site", payload.site_default).strip() or payload.site_default
+
+        if not name or not area_code or not linha:
+            continue
+
+        if area_code not in unique_sectors:
+            unique_sectors[area_code] = {
+                "name": area_key.replace("-", " ").title() if area_key else area_code,
+                "area_key": area_key,
+            }
+
+        short = _short_from_asset_name(name)
+        if not short:
+            continue
+        line_name = _line_asset_name(short, linha)
+        if line_name not in unique_lines:
+            unique_lines[line_name] = {
+                "sector_code": area_code,
+                "short": short,
+                "linha": linha,
+                "site": site,
+            }
+
+    # 4. Upsert setores
+    for code, info in unique_sectors.items():
+        existing = sectors_by_code.get(code)
+        if existing is None:
+            s = Sector(
+                tenant_id=tenant_id,
+                code=code,
+                name=info["name"],
+                description=f"Setor produtivo {info['name']} (ISA-95 Area).",
+                created_by=actor,
+            )
+            if not payload.dry_run:
+                session.add(s)
+            sectors_by_code[code] = s
+            sectors_created += 1
+        else:
+            if existing.name != info["name"] and info["name"]:
+                existing.name = info["name"]
+            existing.updated_by = actor
+            sectors_updated += 1
+
+    # Precisamos dos IDs dos setores para amarrar FKs. Flush intermediario.
+    if not payload.dry_run:
+        await session.flush()
+
+    # 5. Upsert line assets
+    for line_name, info in unique_lines.items():
+        sector = sectors_by_code[info["sector_code"]]
+        existing = assets_by_name.get(line_name)
+        if existing is None:
+            row = Asset(
+                tenant_id=tenant_id,
+                name=line_name,
+                display_name=f"Linha {info['linha']} ({info['short']})",
+                description=f"Linha de producao {info['linha']} - agrupamento logico ISA-95 Level 4.",
+                type=AssetType.Other,
+                layer=Layer.OT,
+                site=info["site"],
+                status=AssetStatus.Active,
+                criticality=Criticality.Medium,
+                sector_id=sector.id,
+                hierarchy_level=HierarchyLevel.Line,
+                owner_team="OT",
+                metadata_json={
+                    "source": "asset-simulator",
+                    "synthetic": True,
+                    "linha": info["linha"],
+                    "short": info["short"],
+                },
+                created_by=actor,
+            )
+            if not payload.dry_run:
+                session.add(row)
+            assets_by_name[line_name] = row
+            lines_created += 1
+        else:
+            existing.sector_id = sector.id
+            existing.hierarchy_level = HierarchyLevel.Line
+            existing.updated_by = actor
+            lines_updated += 1
+
+    if not payload.dry_run:
+        await session.flush()
+
+    # 6. PASS 2: upsert equipment assets
+    for labels in rows:
+        name = labels.get("asset", "").strip()
+        sim_type = labels.get("sim_type", "").strip().lower()
+        site = labels.get("site", payload.site_default).strip() or payload.site_default
+        area_key = labels.get("area", "").strip()
+        area_code = labels.get("area_code", "").strip() or (
+            f"PSA-AREA-{area_key}" if area_key else ""
+        )
+        linha = labels.get("linha", "").strip()
 
         if not name:
             skipped += 1
-            errors.append(ImportError(asset=None, reason="asset vazio"))
+            errors.append(ImportErrorItem(asset=None, reason="asset vazio"))
             continue
 
-        sim_type = _resolve_sim_type(name, sim_type)
         mapping = TYPE_MAPPING.get(sim_type)
         if mapping is None:
             skipped += 1
             errors.append(
-                ImportError(asset=name, reason=f"type '{sim_type}' nao mapeado")
+                ImportErrorItem(asset=name, reason=f"sim_type '{sim_type}' nao mapeado")
             )
             continue
 
@@ -210,7 +362,13 @@ async def import_assets_from_simulator(
         display_name = f"{human} {name}"
         description = f"Ativo importado do asset-simulator ({sim_type}) - site {site}."
 
-        existing = existing_by_name.get(name)
+        sector = sectors_by_code.get(area_code)
+        short = _short_from_asset_name(name)
+        parent = None
+        if short and linha:
+            parent = assets_by_name.get(_line_asset_name(short, linha))
+
+        existing = assets_by_name.get(name)
         if existing is None:
             row = Asset(
                 tenant_id=tenant_id,
@@ -222,6 +380,9 @@ async def import_assets_from_simulator(
                 site=site,
                 status=AssetStatus.Active,
                 criticality=criticality,
+                sector_id=sector.id if sector else None,
+                hierarchy_level=HierarchyLevel.Equipment,
+                parent_id=parent.id if parent else None,
                 owner_team=(
                     "OT" if layer == Layer.OT
                     else "Infra-Fisica" if layer == Layer.Physical
@@ -241,6 +402,10 @@ async def import_assets_from_simulator(
             existing.type = asset_type
             existing.layer = layer
             existing.criticality = criticality
+            existing.sector_id = sector.id if sector else existing.sector_id
+            existing.hierarchy_level = HierarchyLevel.Equipment
+            if parent:
+                existing.parent_id = parent.id
             if not existing.display_name:
                 existing.display_name = display_name
             existing.metadata_json = {
@@ -263,6 +428,10 @@ async def import_assets_from_simulator(
         created=created,
         updated=updated,
         skipped=skipped,
+        sectors_created=sectors_created,
+        sectors_updated=sectors_updated,
+        lines_created=lines_created,
+        lines_updated=lines_updated,
         errors=errors,
         elapsed_ms=elapsed_ms,
     )

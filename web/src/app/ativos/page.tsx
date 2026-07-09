@@ -10,22 +10,29 @@ import {
   AssetType,
   AlertOfAsset,
   Criticality,
+  HierarchyLevel,
   Layer,
+  Sector,
   AssetStatusValue,
   getAsset,
   listAssets,
   listAssetAlerts,
+  listSectors,
 } from "@/lib/api";
 
 const ASSET_TYPES: AssetType[] = [
   "Server", "Workstation", "Laptop", "NetworkSwitch", "Router", "Firewall",
   "AccessPoint", "Printer", "UPS", "Generator", "ACUnit", "PLC", "HMI",
   "SCADA", "Sensor", "Scale", "Camera", "NVR", "Phone", "StorageArray",
-  "TapeLibrary", "Other",
+  "TapeLibrary", "Motor", "Tank", "AirCompressor", "SteamBoiler",
+  "ChilledWaterPump", "BarcodeReader", "Other",
 ];
 const LAYERS: Layer[] = ["TI", "OT", "Physical"];
 const STATUSES: AssetStatusValue[] = ["Active", "Maintenance", "Retired", "Storage", "Faulty"];
 const CRITS: Criticality[] = ["Critical", "High", "Medium", "Low"];
+const HIER_LEVELS: HierarchyLevel[] = ["Equipment", "Line", "Area"];
+
+const PAGE_SIZE = 50;
 
 function critBadge(c: Criticality) {
   return <span className={`badge badge-crit-${c}`}>{c}</span>;
@@ -58,22 +65,37 @@ function AtivosInner() {
   const searchParams = useSearchParams();
 
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  const [filter, setFilter] = useState<AssetFilter>({ limit: 200 });
+  const [sectors, setSectors] = useState<Sector[]>([]);
+
+  const [filter, setFilter] = useState<AssetFilter>({
+    limit: PAGE_SIZE,
+    offset: 0,
+    hierarchy_level: "Equipment",
+  });
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<AssetDetail | null>(null);
   const [assetAlerts, setAssetAlerts] = useState<AlertOfAsset[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
 
+  // Carrega setores uma vez
+  useEffect(() => {
+    listSectors()
+      .then(setSectors)
+      .catch((e) => setErr((e as Error).message));
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setErr(null);
     try {
-      const rows = await listAssets(filter);
-      setAssets(rows);
+      const { items, total } = await listAssets(filter);
+      setAssets(items);
+      setTotal(total);
     } catch (e) {
       setErr((e as Error).message);
     } finally {
@@ -83,7 +105,6 @@ function AtivosInner() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Abrir drawer via ?open=<id>
   useEffect(() => {
     const openId = searchParams.get("open");
     if (openId) setSelectedId(openId);
@@ -107,12 +128,22 @@ function AtivosInner() {
 
   function updateFilter<K extends keyof AssetFilter>(key: K, value: AssetFilter[K] | "") {
     setFilter((f) => {
-      const nf = { ...f };
+      const nf: AssetFilter = { ...f, offset: 0 };
       if (value === "" || value == null) delete nf[key];
       else nf[key] = value as AssetFilter[K];
       return nf;
     });
   }
+
+  function goToPage(newOffset: number) {
+    setFilter((f) => ({ ...f, offset: Math.max(0, newOffset) }));
+  }
+
+  const offset = filter.offset ?? 0;
+  const pageFrom = total === 0 ? 0 : offset + 1;
+  const pageTo = Math.min(offset + PAGE_SIZE, total);
+  const hasPrev = offset > 0;
+  const hasNext = offset + PAGE_SIZE < total;
 
   return (
     <Shell title="Ativos (CMDB)">
@@ -122,6 +153,22 @@ function AtivosInner() {
           value={filter.search ?? ""}
           onChange={(e) => updateFilter("search", e.target.value)}
         />
+        <select
+          value={filter.sector_code ?? ""}
+          onChange={(e) => updateFilter("sector_code", e.target.value)}
+        >
+          <option value="">Setor (todos)</option>
+          {sectors.map((s) => (
+            <option key={s.code} value={s.code}>{s.name}</option>
+          ))}
+        </select>
+        <select
+          value={filter.hierarchy_level ?? ""}
+          onChange={(e) => updateFilter("hierarchy_level", e.target.value as HierarchyLevel)}
+        >
+          <option value="">Nivel (todos)</option>
+          {HIER_LEVELS.map((h) => <option key={h} value={h}>{h}</option>)}
+        </select>
         <select value={filter.type ?? ""} onChange={(e) => updateFilter("type", e.target.value as AssetType)}>
           <option value="">Tipo (todos)</option>
           {ASSET_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -146,8 +193,31 @@ function AtivosInner() {
         <div style={{ color: "var(--fg-2)" }}>Carregando ativos...</div>
       ) : (
         <>
-          <div style={{ color: "var(--fg-2)", fontSize: 12, marginBottom: 8 }}>
-            {assets.length} ativos
+          <div style={{
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            color: "var(--fg-2)", fontSize: 12, marginBottom: 8,
+          }}>
+            <span>
+              {total === 0 ? "Nenhum ativo" : `Mostrando ${pageFrom}-${pageTo} de ${total}`}
+            </span>
+            <span style={{ display: "flex", gap: 8 }}>
+              <button
+                className="drawer-close"
+                onClick={() => goToPage(offset - PAGE_SIZE)}
+                disabled={!hasPrev}
+                style={{ opacity: hasPrev ? 1 : 0.4, cursor: hasPrev ? "pointer" : "default" }}
+              >
+                &laquo; Anterior
+              </button>
+              <button
+                className="drawer-close"
+                onClick={() => goToPage(offset + PAGE_SIZE)}
+                disabled={!hasNext}
+                style={{ opacity: hasNext ? 1 : 0.4, cursor: hasNext ? "pointer" : "default" }}
+              >
+                Proxima &raquo;
+              </button>
+            </span>
           </div>
           <table className="cmdb-table">
             <thead>
@@ -185,6 +255,32 @@ function AtivosInner() {
           <aside className="drawer">
             <div className="drawer-header">
               <div>
+                {detail?.sector && (
+                  <div style={{ fontSize: 11, color: "var(--fg-2)", marginBottom: 6 }}>
+                    <span
+                      className="asset-link"
+                      onClick={() => {
+                        updateFilter("sector_code", detail.sector!.code);
+                        setSelectedId(null);
+                      }}
+                    >
+                      {detail.sector.name}
+                    </span>
+                    {detail.parent && (
+                      <>
+                        {" \u203A "}
+                        <span
+                          className="asset-link"
+                          onClick={() => setSelectedId(detail.parent!.id)}
+                        >
+                          {detail.parent.name}
+                        </span>
+                      </>
+                    )}
+                    {" \u203A "}
+                    <span>{detail.name}</span>
+                  </div>
+                )}
                 <div style={{ fontSize: 18, fontWeight: 600, color: "var(--fg-0)" }}>
                   {detail?.name ?? "..."}
                 </div>
@@ -211,10 +307,12 @@ function AtivosInner() {
                     <dt>criticidade</dt><dd>{critBadge(detail.criticality)}</dd>
                     <dt>status</dt><dd>{statusBadge(detail.status)}</dd>
                     <dt>site</dt><dd>{detail.site}</dd>
-                    {detail.location && <><dt>local</dt><dd>{detail.location}</dd></>}
-                    {detail.hostname && <><dt>hostname</dt><dd>{detail.hostname}</dd></>}
-                    {detail.ip_address && <><dt>ip</dt><dd>{detail.ip_address}</dd></>}
-                    {detail.owner_team && <><dt>time</dt><dd>{detail.owner_team}</dd></>}
+                    {detail.hierarchy_level && (<><dt>nivel</dt><dd>{detail.hierarchy_level}</dd></>)}
+                    {detail.sector && (<><dt>setor</dt><dd>{detail.sector.name}</dd></>)}
+                    {detail.location && (<><dt>local</dt><dd>{detail.location}</dd></>)}
+                    {detail.hostname && (<><dt>hostname</dt><dd>{detail.hostname}</dd></>)}
+                    {detail.ip_address && (<><dt>ip</dt><dd>{detail.ip_address}</dd></>)}
+                    {detail.owner_team && (<><dt>time</dt><dd>{detail.owner_team}</dd></>)}
                   </dl>
                 </div>
 
@@ -231,8 +329,8 @@ function AtivosInner() {
                     )}
                     {detail.children.length > 0 && (
                       <div style={{ fontSize: 13 }}>
-                        filhos:{" "}
-                        {detail.children.map((ch, i) => (
+                        filhos ({detail.children.length}):{" "}
+                        {detail.children.slice(0, 20).map((ch, i) => (
                           <span key={ch.id}>
                             {i > 0 && ", "}
                             <span className="asset-link" onClick={() => setSelectedId(ch.id)}>
@@ -240,6 +338,11 @@ function AtivosInner() {
                             </span>
                           </span>
                         ))}
+                        {detail.children.length > 20 && (
+                          <span style={{ color: "var(--fg-2)" }}>
+                            {" "}(+{detail.children.length - 20} outros)
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>

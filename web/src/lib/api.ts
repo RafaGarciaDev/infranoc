@@ -25,10 +25,7 @@ export async function login(username: string, password: string): Promise<LoginRe
   body.append("grant_type", "password");
   body.append("username", username);
   body.append("password", password);
-  const res = await fetch(`${API_URL}/auth/login`, {
-    method: "POST",
-    body,
-  });
+  const res = await fetch(`${API_URL}/auth/login`, { method: "POST", body });
   if (!res.ok) {
     if (res.status === 401) throw new Error("Usuario ou senha invalidos.");
     throw new Error(`Falha no login (HTTP ${res.status}).`);
@@ -43,9 +40,7 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
   return fetch(`${API_URL}${path}`, { ...init, headers });
 }
 
-/* ---------------------------------------------------------
- * Alertas (Fase 3 - Bloco 5)
- * --------------------------------------------------------- */
+/* Alertas */
 export type Severity = "critical" | "high" | "warning" | "info";
 export type AlertStatus = "firing" | "resolved";
 
@@ -107,18 +102,34 @@ export async function getAlert(id: string): Promise<AlertDetail> {
   return res.json();
 }
 
-/* ---------------------------------------------------------
- * Assets / CMDB (Fase 4 - Bloco 5)
- * --------------------------------------------------------- */
+/* Assets / CMDB (Fase 4.5) */
 export type AssetType =
   | "Server" | "Workstation" | "Laptop" | "NetworkSwitch" | "Router" | "Firewall"
   | "AccessPoint" | "Printer" | "UPS" | "Generator" | "ACUnit" | "PLC" | "HMI"
   | "SCADA" | "Sensor" | "Scale" | "Camera" | "NVR" | "Phone" | "StorageArray"
-  | "TapeLibrary" | "Other";
+  | "TapeLibrary" | "Motor" | "Tank" | "AirCompressor" | "SteamBoiler"
+  | "ChilledWaterPump" | "BarcodeReader" | "Other";
 
 export type Layer = "TI" | "OT" | "Physical";
 export type AssetStatusValue = "Active" | "Maintenance" | "Retired" | "Storage" | "Faulty";
 export type Criticality = "Low" | "Medium" | "High" | "Critical";
+export type HierarchyLevel = "Area" | "Line" | "Equipment";
+
+export type SectorRef = {
+  id: string;
+  code: string;
+  name: string;
+};
+
+export type Sector = SectorRef & {
+  description: string | null;
+  oee_target: number | null;
+  assets_count: number;
+  equipments_count: number;
+  alerts_firing: number;
+  created_at: string;
+  updated_at: string | null;
+};
 
 export type Asset = {
   id: string;
@@ -136,6 +147,8 @@ export type Asset = {
   owner_email: string | null;
   owner_team: string | null;
   parent_id: string | null;
+  sector_id: string | null;
+  hierarchy_level: HierarchyLevel | null;
   metadata_json: Record<string, unknown> | null;
   created_at: string;
   updated_at: string | null;
@@ -151,6 +164,7 @@ export type AssetSummary = {
 export type AssetDetail = Asset & {
   parent: AssetSummary | null;
   children: AssetSummary[];
+  sector: SectorRef | null;
 };
 
 export type AlertOfAsset = {
@@ -169,25 +183,36 @@ export type AssetFilter = {
   site?: string;
   status?: AssetStatusValue;
   criticality?: Criticality;
+  sector_code?: string;
+  hierarchy_level?: HierarchyLevel;
   search?: string;
   limit?: number;
   offset?: number;
 };
 
-export async function listAssets(filter: AssetFilter = {}): Promise<Asset[]> {
+export type ListAssetsResult = {
+  items: Asset[];
+  total: number;
+};
+
+export async function listAssets(filter: AssetFilter = {}): Promise<ListAssetsResult> {
   const qs = new URLSearchParams();
   if (filter.type) qs.set("type", filter.type);
   if (filter.layer) qs.set("layer", filter.layer);
   if (filter.site) qs.set("site", filter.site);
   if (filter.status) qs.set("status", filter.status);
   if (filter.criticality) qs.set("criticality", filter.criticality);
+  if (filter.sector_code) qs.set("sector_code", filter.sector_code);
+  if (filter.hierarchy_level) qs.set("hierarchy_level", filter.hierarchy_level);
   if (filter.search) qs.set("search", filter.search);
   if (filter.limit != null) qs.set("limit", String(filter.limit));
   if (filter.offset != null) qs.set("offset", String(filter.offset));
   const query = qs.toString();
   const res = await apiFetch(`/assets${query ? "?" + query : ""}`);
   if (!res.ok) throw new Error(`Falha ao listar ativos (HTTP ${res.status})`);
-  return res.json();
+  const items = (await res.json()) as Asset[];
+  const total = Number(res.headers.get("X-Total-Count") ?? items.length);
+  return { items, total };
 }
 
 export async function getAsset(id: string): Promise<AssetDetail> {
@@ -200,5 +225,12 @@ export async function listAssetAlerts(id: string, status?: string): Promise<Aler
   const qs = status ? `?status=${encodeURIComponent(status)}` : "";
   const res = await apiFetch(`/assets/${id}/alerts${qs}`);
   if (!res.ok) throw new Error(`Falha ao listar alertas do ativo (HTTP ${res.status})`);
+  return res.json();
+}
+
+/* Setores (Fase 4.5) */
+export async function listSectors(): Promise<Sector[]> {
+  const res = await apiFetch("/sectors");
+  if (!res.ok) throw new Error(`Falha ao listar setores (HTTP ${res.status})`);
   return res.json();
 }

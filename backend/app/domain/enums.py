@@ -38,6 +38,12 @@ class AssetType(str, enum.Enum):
     Phone = "Phone"
     StorageArray = "StorageArray"
     TapeLibrary = "TapeLibrary"
+    Motor = "Motor"
+    Tank = "Tank"
+    AirCompressor = "AirCompressor"
+    SteamBoiler = "SteamBoiler"
+    ChilledWaterPump = "ChilledWaterPump"
+    BarcodeReader = "BarcodeReader"
     Other = "Other"
 
 

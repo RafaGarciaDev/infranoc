@@ -6,9 +6,9 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -16,7 +16,7 @@ from sqlalchemy.orm import selectinload
 from app.core.db import get_session
 from app.core.deps import require
 from app.domain.enums import AssetStatus, AssetType, Criticality, Layer
-from app.domain.models import Alert, Asset
+from app.domain.models import Alert, Asset, HierarchyLevel, Sector
 
 router = APIRouter(prefix="/assets", tags=["assets"])
 
@@ -80,6 +80,8 @@ class AssetOut(BaseModel):
     owner_email: str | None
     owner_team: str | None
     parent_id: uuid.UUID | None
+    sector_id: uuid.UUID | None
+    hierarchy_level: HierarchyLevel | None
     metadata_json: dict | None
     created_at: datetime
     updated_at: datetime | None
@@ -97,9 +99,18 @@ class AssetSummary(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class SectorRef(BaseModel):
+    id: uuid.UUID
+    code: str
+    name: str
+
+    model_config = {"from_attributes": True}
+
+
 class AssetDetail(AssetOut):
     parent: AssetSummary | None
     children: list[AssetSummary]
+    sector: SectorRef | None
 
 
 # =============================================================================
@@ -112,16 +123,19 @@ def _tenant_id(claims: dict) -> uuid.UUID:
 # =============================================================================
 # GET /api/assets
 # =============================================================================
-@router.get("", response_model=list[AssetOut])
+@router.get("")
 async def list_assets(
     claims: Annotated[dict, Depends(require("cmdb.read"))],
     session: Annotated[AsyncSession, Depends(get_session)],
+    response: Response,
     type_: AssetType | None = Query(None, alias="type"),
     layer: Layer | None = Query(None),
     site: str | None = Query(None),
     status_filter: AssetStatus | None = Query(None, alias="status"),
     criticality: Criticality | None = Query(None),
     parent_id: uuid.UUID | None = Query(None),
+    sector_code: str | None = Query(None, description="filtra pelo code do setor"),
+    hierarchy_level: HierarchyLevel | None = Query(None),
     search: str | None = Query(None, description="busca em name, hostname, ip"),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -141,6 +155,13 @@ async def list_assets(
         stmt = stmt.where(Asset.criticality == criticality)
     if parent_id:
         stmt = stmt.where(Asset.parent_id == parent_id)
+    if sector_code:
+        subq = select(Sector.id).where(
+            Sector.tenant_id == tenant_id, Sector.code == sector_code
+        )
+        stmt = stmt.where(Asset.sector_id.in_(subq))
+    if hierarchy_level:
+        stmt = stmt.where(Asset.hierarchy_level == hierarchy_level)
     if search:
         pat = f"%{search}%"
         stmt = stmt.where(
@@ -150,6 +171,12 @@ async def list_assets(
                 Asset.ip_address.ilike(pat),
             )
         )
+
+    total = (await session.execute(
+        select(func.count()).select_from(stmt.subquery())
+    )).scalar_one()
+    response.headers["X-Total-Count"] = str(total)
+    response.headers["Access-Control-Expose-Headers"] = "X-Total-Count"
 
     stmt = stmt.order_by(Asset.name).limit(limit).offset(offset)
     rows = (await session.execute(stmt)).scalars().all()
@@ -170,7 +197,7 @@ async def get_asset(
         await session.execute(
             select(Asset)
             .where(Asset.id == asset_id, Asset.tenant_id == tenant_id)
-            .options(selectinload(Asset.parent), selectinload(Asset.children))
+            .options(selectinload(Asset.parent), selectinload(Asset.children), selectinload(Asset.sector))
         )
     ).scalar_one_or_none()
     if not row:
