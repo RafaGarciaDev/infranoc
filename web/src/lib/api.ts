@@ -234,3 +234,93 @@ export async function listSectors(): Promise<Sector[]> {
   if (!res.ok) throw new Error(`Falha ao listar setores (HTTP ${res.status})`);
   return res.json();
 }
+
+/* Active Directory (Fase 5) */
+export type ADUser = {
+  sam: string;
+  display_name: string;
+  email: string;
+  title: string;
+  department: string;
+  disabled: boolean;
+  locked: boolean;
+  dn: string;
+  groups: string[];
+};
+
+export type ADSummary = {
+  total: number;
+  locked: number;
+  disabled: number;
+  by_department: Record<string, number>;
+};
+
+export type ADAuditEvent = {
+  id: string;
+  event_id: number;
+  at: string;
+  target_sam: string | null;
+  actor_sam: string | null;
+  message: string;
+};
+
+export async function listAdUsers(q?: string, ou?: string): Promise<ADUser[]> {
+  const qs = new URLSearchParams();
+  if (q) qs.set("q", q);
+  if (ou) qs.set("ou", ou);
+  const query = qs.toString();
+  const res = await apiFetch(`/directory/users${query ? "?" + query : ""}`);
+  if (!res.ok) throw new Error(`Falha ao listar usuarios AD (HTTP ${res.status})`);
+  return res.json();
+}
+
+export async function getAdSummary(): Promise<ADSummary> {
+  const res = await apiFetch("/directory/summary");
+  if (!res.ok) throw new Error(`Falha ao buscar summary AD (HTTP ${res.status})`);
+  return res.json();
+}
+
+export async function resetPassword(sam: string, newPassword: string, mustChange = true): Promise<void> {
+  const res = await apiFetch(`/directory/users/${sam}/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ new_password: newPassword, must_change: mustChange }),
+  });
+  if (!res.ok) throw new Error(`Falha ao resetar senha (HTTP ${res.status})`);
+}
+
+
+
+export async function unlockUser(sam: string): Promise<void> {
+  const res = await apiFetch(`/directory/users/${sam}/unlock`, { method: "POST" });
+  if (!res.ok) throw new Error(`Falha ao desbloquear usuario (HTTP ${res.status})`);
+}
+
+export async function setEnabled(sam: string, value: boolean): Promise<void> {
+  const res = await apiFetch(`/directory/users/${sam}/enable?value=${value}`, { method: "POST" });
+  if (!res.ok) throw new Error(`Falha ao alterar status (HTTP ${res.status})`);
+}
+
+export async function changeGroup(sam: string, groupDn: string, add: boolean): Promise<void> {
+  const res = await apiFetch(`/directory/users/${sam}/groups`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ group_dn: groupDn, add }),
+  });
+  if (!res.ok) throw new Error(`Falha ao alterar grupo (HTTP ${res.status})`);
+}
+
+export async function listAdAudit(params?: {
+  event_id?: number;
+  target_sam?: string;
+  limit?: number;
+}): Promise<ADAuditEvent[]> {
+  const qs = new URLSearchParams();
+  if (params?.event_id) qs.set("event_id", String(params.event_id));
+  if (params?.target_sam) qs.set("target_sam", params.target_sam);
+  if (params?.limit) qs.set("limit", String(params.limit));
+  const query = qs.toString();
+  const res = await apiFetch(`/directory/audit${query ? "?" + query : ""}`);
+  if (!res.ok) throw new Error(`Falha ao listar auditoria AD (HTTP ${res.status})`);
+  return res.json();
+}
