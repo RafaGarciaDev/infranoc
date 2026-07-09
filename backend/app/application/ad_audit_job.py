@@ -20,7 +20,7 @@ import hashlib
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import select
 
