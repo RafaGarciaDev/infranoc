@@ -1,4 +1,4 @@
-﻿# InfraNOC
+# InfraNOC
 
 > Plataforma unificada de NOC, SOC, IAM e Observabilidade — monitorando a fábrica fictícia **Laticínios Vale Verde S/A**.
 
@@ -27,6 +27,28 @@ Plataforma enterprise que unifica observabilidade de TI e OT industrial, gestão
 ## Modulos (MVP)
 
 Dashboard NOC · Observabilidade TI · Observabilidade OT (OEE/HACCP) · Rede · Energia/Infra fisica · Active Directory · Impressoras · CMDB · Alertas · Automacao de chamados · IA para Infra
+
+## Subir tudo com 1 comando
+
+```powershell
+# 1. Copiar .env.example -> .env (fica gitignored)
+Copy-Item .env.example .env
+
+# 2. Subir a stack de observabilidade primeiro (cria a network)
+docker compose -f compose\docker-compose.observability.yml up -d
+
+# 3. Subir dev (postgres + redis + backend + web)
+docker compose -f compose\docker-compose.dev.yml up -d --build
+
+# 4. Rodar seed (uma vez)
+docker exec infranoc-backend uv run python -m app.seed
+```
+
+Endpoints:
+- Frontend: http://localhost:3000
+- Backend: http://localhost:8080 (docs em /docs)
+- Grafana: http://localhost:3001
+- Prometheus: http://localhost:9090
 
 ## Status
 
