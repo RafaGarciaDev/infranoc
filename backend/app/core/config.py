@@ -24,9 +24,10 @@ class Settings(BaseSettings):
     ad_bind_password: str = ""            # env INFRANOC_AD_BIND_PASSWORD
     ad_users_ou: str = "OU=Usuarios,OU=VALEVERDE,DC=infranoc,DC=lab"
     winrm_host: str = "192.168.56.10"
-    winrm_user: str = "INFRANOC\\svc_infranoc"
+    winrm_user: str = "svc_infranoc@infranoc.lab"
     winrm_password: str = ""              # env INFRANOC_WINRM_PASSWORD
     ad_audit_interval_minutes: int = 15
+    ad_tenant_id: str = "c0f64a7a-f821-4b23-97be-5a610afba0e0"  # env INFRANOC_AD_TENANT_ID
     # Prometheus (Fase 3), AI (Fase 7) entram depois
 
 

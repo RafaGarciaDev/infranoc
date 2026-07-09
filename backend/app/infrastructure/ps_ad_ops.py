@@ -51,7 +51,8 @@ class PsAdOps:
             username=settings.winrm_user,
             password=settings.winrm_password,
             ssl=False,
-            auth="negotiate",
+            auth="basic",
+            encryption="never",
         )
 
     def reset_password(self, sam: str, new_password: str, must_change: bool) -> None:
