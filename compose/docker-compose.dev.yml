@@ -16,6 +16,52 @@ services:
   redis:
     image: redis:7
     ports: ["6379:6379"]
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: infranoc-backend
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      INFRANOC_DATABASE_URL: postgresql+asyncpg://infranoc:infranoc@postgres:5432/infranoc
+      INFRANOC_REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../backend:/app
+      - backend-venv:/app/.venv
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - default
+      - observability
+  web:
+    build:
+      context: ../web
+      dockerfile: Dockerfile
+    container_name: infranoc-web
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../web:/app
+      - web-node-modules:/app/node_modules
+      - web-next:/app/.next
+    depends_on:
+      - backend
 
 volumes:
   pg:
+  backend-venv:
+  web-node-modules:
+  web-next:
+
+networks:
+  observability:
+    external: true
+    name: compose_observability
