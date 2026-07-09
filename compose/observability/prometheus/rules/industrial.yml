@@ -1,0 +1,51 @@
+# InfraNOC - Alertas industriais especificos (Fase 4.5)
+# Complementam o infranoc.yml com regras baseadas em sim_type/label.
+# severity: critical | high | warning
+# categoria: OT
+
+groups:
+  - name: infranoc-industrial
+    interval: 30s
+    rules:
+      # -----------------------------------------------------------------
+      # Camara fria com temperatura de risco imediato (acima de -2C).
+      # Complementa CamaraFriaAcimaDoLimite (que dispara em > -15C).
+      # Nivel critical pois >-2C indica falha grave do compressor.
+      # -----------------------------------------------------------------
+      - alert: TempAltaCamaraFria
+        expr: infranoc_temp_celsius{sim_type="sensor_temp_cf"} > -2
+        for: 2m
+        labels:
+          severity: critical
+          categoria: OT
+        annotations:
+          summary: "Camara fria {{ $labels.asset }} acima de -2C ({{ $value }}C)"
+          impacto_negocio: "Risco iminente de perda de produto refrigerado. Verificar compressor imediatamente."
+
+      # -----------------------------------------------------------------
+      # Pressao alta em sensor de pasteurizacao (setpoint ~3.5 bar).
+      # Acima de 4.5 bar indica entupimento ou valvula travada.
+      # -----------------------------------------------------------------
+      - alert: PressaoAltaPasteurizacao
+        expr: infranoc_pressure_bar{sim_type="sensor_press"} > 4.5
+        for: 1m
+        labels:
+          severity: high
+          categoria: OT
+        annotations:
+          summary: "Pressao alta em {{ $labels.asset }} ({{ $value }} bar)"
+          impacto_negocio: "Pasteurizador pode estar com entupimento. Reduzir vazao e inspecionar filtros."
+
+      # -----------------------------------------------------------------
+      # Vibracao alta em motor (ISO 10816 classe I: > 7.1 mm/s).
+      # Indica desgaste de rolamento ou desalinhamento.
+      # -----------------------------------------------------------------
+      - alert: VibracaoAltaMotor
+        expr: infranoc_vibration_mmps{sim_type="sensor_vibr"} > 7.1
+        for: 5m
+        labels:
+          severity: warning
+          categoria: OT
+        annotations:
+          summary: "Vibracao alta em {{ $labels.asset }} ({{ $value }} mm/s ISO 10816)"
+          impacto_negocio: "Motor com desgaste. Programar manutencao preventiva antes que quebre em producao."

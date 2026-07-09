@@ -14,6 +14,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
+from enum import Enum as PyEnum
 from app.domain.enums import AssetStatus, AssetType, Criticality, Layer
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -171,6 +172,38 @@ class AlertStatusChange(Base):
     alert: Mapped[Alert] = relationship(back_populates="status_history")
 
 # ============================================================
+# Fase 4.5 - CMDB: Setores (ISA-95 Level 3) e hierarquia
+# ============================================================
+class HierarchyLevel(str, PyEnum):
+    Area = "Area"
+    Line = "Line"
+    Equipment = "Equipment"
+
+
+class Sector(Base, AuditMixin):
+    """Setor/area produtiva (ISA-95 Level 3 - Area)."""
+    __tablename__ = "sectors"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "code", name="uq_sectors_tenant_code"),
+        Index("ix_sectors_tenant", "tenant_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id"), index=True
+    )
+
+    code: Mapped[str] = mapped_column(String(64))
+    name: Mapped[str] = mapped_column(String(128))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Metricas agregadas (populadas por job futuro)
+    oee_target: Mapped[float | None] = mapped_column(nullable=True)
+
+    assets: Mapped[list["Asset"]] = relationship(back_populates="sector")
+
+
+# ============================================================
 # Fase 4 - CMDB: Ativos
 # ============================================================
 class Asset(Base, AuditMixin):
@@ -209,6 +242,15 @@ class Asset(Base, AuditMixin):
 
     owner_email: Mapped[str | None] = mapped_column(String(256), nullable=True)
     owner_team: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
+    sector_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("sectors.id"), nullable=True, index=True
+    )
+    sector: Mapped["Sector | None"] = relationship(back_populates="assets")
+
+    hierarchy_level: Mapped[HierarchyLevel | None] = mapped_column(
+        SQLEnum(HierarchyLevel, name="hierarchy_level"), nullable=True
+    )
 
     parent_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
