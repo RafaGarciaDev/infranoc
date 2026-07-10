@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import secrets
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
@@ -316,3 +316,61 @@ async def get_alert(
     out = AlertDetailOut.model_validate(row)
     out.asset_id = asset_id_lookup
     return out
+
+# -----------------------------------------------------------------------------
+# POST /api/alerts/{id}/ack   (acknowledge - Fase 6)
+# -----------------------------------------------------------------------------
+@router.post("/{alert_id}/ack", status_code=status.HTTP_200_OK)
+async def ack_alert(
+    alert_id: uuid.UUID,
+    claims: dict = Depends(require("alerts.read")),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Marca alerta como reconhecido pelo usuario atual.
+
+    - Exige alerta em status 'firing'; se ja estiver 'acked' ou 'resolved',
+      retorna 409.
+    - Grava acknowledged_at/acknowledged_by no Alert e registra a mudanca
+      em AlertStatusChange (audit trail).
+    """
+    tenant_id = uuid.UUID(claims["tenant_id"])
+    who = claims.get("sub", "desconhecido")
+
+    row = (
+        await session.execute(
+            select(Alert).where(
+                Alert.id == alert_id,
+                Alert.tenant_id == tenant_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not row:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Alerta nao encontrado")
+    if row.status != "firing":
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Alerta nao esta 'firing' (status atual: {row.status})",
+        )
+
+    prev = row.status
+    now = datetime.now(timezone.utc)
+    row.status = "acked"
+    row.acknowledged_at = now
+    row.acknowledged_by = who
+
+    session.add(
+        AlertStatusChange(
+            alert_id=row.id,
+            from_status=prev,
+            to_status="acked",
+            note=f"ack via UI por {who}",
+        )
+    )
+    await session.commit()
+
+    return {
+        "id": str(row.id),
+        "status": row.status,
+        "acknowledged_at": row.acknowledged_at.isoformat(),
+        "acknowledged_by": row.acknowledged_by,
+    }
