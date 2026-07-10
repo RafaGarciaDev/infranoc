@@ -31,4 +31,4 @@ volumes/
 # Backend env
 backend/.env
 # AlertManager secrets
-compose/observability/alertmanager/secrets/webhook_password
+compose/observability/alertmanager/secrets/webhook_password.commit_msg.tmp

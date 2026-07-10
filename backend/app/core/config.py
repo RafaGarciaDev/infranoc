@@ -28,7 +28,9 @@ class Settings(BaseSettings):
     winrm_password: str = ""              # env INFRANOC_WINRM_PASSWORD
     ad_audit_interval_minutes: int = 15
     ad_tenant_id: str = "c0f64a7a-f821-4b23-97be-5a610afba0e0"  # env INFRANOC_AD_TENANT_ID
-    # Prometheus (Fase 3), AI (Fase 7) entram depois
+    # Prometheus (Fase 6 - Dashboard NOC)
+    prometheus_url: str = "http://localhost:9090"
+    # AI (Fase 7) entra depois
 
 
 settings = Settings()
