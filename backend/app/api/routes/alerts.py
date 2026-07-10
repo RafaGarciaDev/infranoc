@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import secrets
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -244,6 +244,21 @@ async def alertmanager_webhook(
 # GET /api/alerts   (listagem)
 # -----------------------------------------------------------------------------
 _SEVERITY_ORDER = {"critical": 0, "high": 1, "warning": 2, "info": 3}
+# Mapping area do mapa -> prefixos de nome de ativo (Fase 6).
+# Mantido em sync com dashboard_service._area_of_asset.
+_AREA_PREFIXES: dict[str, list[str]] = {
+    "recebimento":   ["PSA-RECEB-"],
+    "pasteurizacao": ["PSA-PAST-"],
+    "laboratorio":   ["PSA-LAB-"],
+    "linha1":        ["PSA-ENV-L1-"],
+    "linha2":        ["PSA-ENV-L2-"],
+    "linha3":        ["PSA-ENV-L3-"],
+    "linha4":        ["PSA-ENV-L4-"],
+    "camaras":       ["PSA-CF-"],
+    "expedicao":     ["PSA-EXPED-"],
+    "utilidades":    ["PSA-UTIL-"],
+    "datacenter":    ["PSA-DC-"],
+}
 
 
 @router.get("", response_model=list[AlertOut])
@@ -253,6 +268,7 @@ async def list_alerts(
     status_filter: Literal["firing", "resolved"] | None = Query(None, alias="status"),
     severity: str | None = Query(None),
     categoria: str | None = Query(None),
+    area: str | None = Query(None, description="chave da area do mapa (ex.: pasteurizacao)"),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ) -> list[AlertOut]:
@@ -265,6 +281,11 @@ async def list_alerts(
         stmt = stmt.where(Alert.severity == severity)
     if categoria:
         stmt = stmt.where(Alert.categoria == categoria)
+    if area:
+        prefixes = _AREA_PREFIXES.get(area)
+        if not prefixes:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"area invalida: {area}")
+        stmt = stmt.where(or_(*[Alert.asset.like(f"{p}%") for p in prefixes]))
 
     stmt = stmt.order_by(Alert.starts_at.desc()).limit(limit).offset(offset)
     rows = (await session.execute(stmt)).scalars().all()
@@ -316,3 +337,61 @@ async def get_alert(
     out = AlertDetailOut.model_validate(row)
     out.asset_id = asset_id_lookup
     return out
+
+# -----------------------------------------------------------------------------
+# POST /api/alerts/{id}/ack   (acknowledge - Fase 6)
+# -----------------------------------------------------------------------------
+@router.post("/{alert_id}/ack", status_code=status.HTTP_200_OK)
+async def ack_alert(
+    alert_id: uuid.UUID,
+    claims: dict = Depends(require("alerts.read")),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Marca alerta como reconhecido pelo usuario atual.
+
+    - Exige alerta em status 'firing'; se ja estiver 'acked' ou 'resolved',
+      retorna 409.
+    - Grava acknowledged_at/acknowledged_by no Alert e registra a mudanca
+      em AlertStatusChange (audit trail).
+    """
+    tenant_id = uuid.UUID(claims["tenant_id"])
+    who = claims.get("sub", "desconhecido")
+
+    row = (
+        await session.execute(
+            select(Alert).where(
+                Alert.id == alert_id,
+                Alert.tenant_id == tenant_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not row:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Alerta nao encontrado")
+    if row.status != "firing":
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Alerta nao esta 'firing' (status atual: {row.status})",
+        )
+
+    prev = row.status
+    now = datetime.now(timezone.utc)
+    row.status = "acked"
+    row.acknowledged_at = now
+    row.acknowledged_by = who
+
+    session.add(
+        AlertStatusChange(
+            alert_id=row.id,
+            from_status=prev,
+            to_status="acked",
+            note=f"ack via UI por {who}",
+        )
+    )
+    await session.commit()
+
+    return {
+        "id": str(row.id),
+        "status": row.status,
+        "acknowledged_at": row.acknowledged_at.isoformat(),
+        "acknowledged_by": row.acknowledged_by,
+    }

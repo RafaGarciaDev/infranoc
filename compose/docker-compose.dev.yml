@@ -1,4 +1,4 @@
-﻿name: infranoc-dev
+name: infranoc-dev
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -27,6 +27,7 @@ services:
     environment:
       INFRANOC_DATABASE_URL: postgresql+asyncpg://infranoc:infranoc@postgres:5432/infranoc
       INFRANOC_REDIS_URL: redis://redis:6379/0
+      INFRANOC_PROMETHEUS_URL: http://prometheus:9090
     ports:
       - "8080:8080"
     volumes:
