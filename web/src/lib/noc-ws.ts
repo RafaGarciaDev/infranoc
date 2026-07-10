@@ -27,6 +27,14 @@ export type NocPayload = {
     starts_at: string;
   }>;
   output_units: number;
+  top_ti_alerts: Array<{
+    id: string;
+    summary: string | null;
+    asset: string | null;
+    severity: string;
+    impacto_negocio: string | null;
+    starts_at: string;
+  }>;
   plant: Array<{
     key: string;
     label: string;

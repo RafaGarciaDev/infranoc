@@ -153,6 +153,21 @@ async def overview(session: AsyncSession, tenant_id: uuid.UUID) -> dict:
             for a in top
         ],
         "output_units": int(output or 0),
+        "top_ti_alerts": [
+            {
+                "id": str(a.id),
+                "summary": a.summary,
+                "asset": a.asset,
+                "severity": a.severity,
+                "impacto_negocio": a.impacto_negocio,
+                "starts_at": a.starts_at.isoformat(),
+            }
+            for a in sorted(
+                [a for a in active_rows if (a.categoria or "").upper() == "TI"],
+                key=lambda a: (SEV_WEIGHT.get(a.severity, 0), a.starts_at.timestamp()),
+                reverse=True,
+            )[:20]
+        ],
     }
 
 
