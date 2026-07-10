@@ -10,7 +10,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -244,6 +244,21 @@ async def alertmanager_webhook(
 # GET /api/alerts   (listagem)
 # -----------------------------------------------------------------------------
 _SEVERITY_ORDER = {"critical": 0, "high": 1, "warning": 2, "info": 3}
+# Mapping area do mapa -> prefixos de nome de ativo (Fase 6).
+# Mantido em sync com dashboard_service._area_of_asset.
+_AREA_PREFIXES: dict[str, list[str]] = {
+    "recebimento":   ["PSA-RECEB-"],
+    "pasteurizacao": ["PSA-PAST-"],
+    "laboratorio":   ["PSA-LAB-"],
+    "linha1":        ["PSA-ENV-L1-"],
+    "linha2":        ["PSA-ENV-L2-"],
+    "linha3":        ["PSA-ENV-L3-"],
+    "linha4":        ["PSA-ENV-L4-"],
+    "camaras":       ["PSA-CF-"],
+    "expedicao":     ["PSA-EXPED-"],
+    "utilidades":    ["PSA-UTIL-"],
+    "datacenter":    ["PSA-DC-"],
+}
 
 
 @router.get("", response_model=list[AlertOut])
@@ -253,6 +268,7 @@ async def list_alerts(
     status_filter: Literal["firing", "resolved"] | None = Query(None, alias="status"),
     severity: str | None = Query(None),
     categoria: str | None = Query(None),
+    area: str | None = Query(None, description="chave da area do mapa (ex.: pasteurizacao)"),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ) -> list[AlertOut]:
@@ -265,6 +281,11 @@ async def list_alerts(
         stmt = stmt.where(Alert.severity == severity)
     if categoria:
         stmt = stmt.where(Alert.categoria == categoria)
+    if area:
+        prefixes = _AREA_PREFIXES.get(area)
+        if not prefixes:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"area invalida: {area}")
+        stmt = stmt.where(or_(*[Alert.asset.like(f"{p}%") for p in prefixes]))
 
     stmt = stmt.order_by(Alert.starts_at.desc()).limit(limit).offset(offset)
     rows = (await session.execute(stmt)).scalars().all()

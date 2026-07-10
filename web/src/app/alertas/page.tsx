@@ -1,9 +1,10 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Shell from "@/components/Shell";
 import {
+  ackAlert,
   Alert,
   AlertDetail,
   AlertStatus,
@@ -18,6 +19,20 @@ const SEV_ORDER: Record<string, number> = {
   high: 1,
   warning: 2,
   info: 3,
+};
+
+const AREA_LABELS: Record<string, string> = {
+  recebimento: "Recebimento",
+  pasteurizacao: "Pasteurizacao",
+  laboratorio: "Laboratorio",
+  linha1: "Linha 1 UHT",
+  linha2: "Linha 2 Iogurte",
+  linha3: "Linha 3 Queijo Frescal",
+  linha4: "Linha 4 Manteiga",
+  camaras: "Camaras Frias",
+  expedicao: "Expedicao",
+  utilidades: "Utilidades",
+  datacenter: "Datacenter",
 };
 
 function severityBadge(sev: string) {
@@ -56,8 +71,11 @@ function fmtRelative(iso: string) {
   return `${Math.floor(diff / 86400)}d atras`;
 }
 
-export default function AlertasPage() {
+function AlertasContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const areaParam = searchParams.get("area") ?? "";
+
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +88,8 @@ export default function AlertasPage() {
   const [detail, setDetail] = useState<AlertDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
+  const [ackBusy, setAckBusy] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     setError(null);
     try {
@@ -77,9 +97,9 @@ export default function AlertasPage() {
         status: fStatus || undefined,
         severity: fSeverity || undefined,
         categoria: fCategoria || undefined,
+        area: areaParam || undefined,
         limit: 200,
       });
-      // ordena firing primeiro, depois severidade, depois mais recente
       data.sort((a, b) => {
         if (a.status !== b.status) return a.status === "firing" ? -1 : 1;
         const sa = SEV_ORDER[a.severity.toLowerCase()] ?? 99;
@@ -93,21 +113,18 @@ export default function AlertasPage() {
     } finally {
       setLoading(false);
     }
-  }, [fStatus, fSeverity, fCategoria]);
+  }, [fStatus, fSeverity, fCategoria, areaParam]);
 
-  // primeira carga + toda vez que os filtros mudam
   useEffect(() => {
     setLoading(true);
     load();
   }, [load]);
 
-  // auto-refresh
   useEffect(() => {
     const t = setInterval(load, REFRESH_MS);
     return () => clearInterval(t);
   }, [load]);
 
-  // carrega detalhe quando muda selectedId
   useEffect(() => {
     if (!selectedId) {
       setDetail(null);
@@ -116,21 +133,12 @@ export default function AlertasPage() {
     let alive = true;
     setDetailLoading(true);
     getAlert(selectedId)
-      .then((d) => {
-        if (alive) setDetail(d);
-      })
-      .catch((e) => {
-        if (alive) setError(e instanceof Error ? e.message : "Erro no detalhe.");
-      })
-      .finally(() => {
-        if (alive) setDetailLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
+      .then((d) => { if (alive) setDetail(d); })
+      .catch((e) => { if (alive) setError(e instanceof Error ? e.message : "Erro no detalhe."); })
+      .finally(() => { if (alive) setDetailLoading(false); });
+    return () => { alive = false; };
   }, [selectedId]);
 
-  // ESC fecha o drawer
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setSelectedId(null);
@@ -139,8 +147,28 @@ export default function AlertasPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  function clearArea() {
+    router.push("/alertas");
+  }
+
+  async function handleAck(id: string, ev: React.MouseEvent) {
+    ev.stopPropagation();
+    setAckBusy(id);
+    setError(null);
+    try {
+      await ackAlert(id);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao acked.");
+    } finally {
+      setAckBusy(null);
+    }
+  }
+
+  const areaLabel = areaParam ? (AREA_LABELS[areaParam] ?? areaParam) : "";
+
   return (
-    <Shell title="Alertas">
+    <>
       <div className="alerts-toolbar">
         <label className="field">
           <span className="field-label">Status</span>
@@ -185,6 +213,31 @@ export default function AlertasPage() {
           </select>
         </label>
 
+        {areaParam && (
+          <div
+            style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "6px 10px", borderRadius: 8,
+              background: "rgba(59,130,246,0.15)",
+              border: "1px solid rgba(59,130,246,0.4)",
+            }}
+          >
+            <span style={{ fontSize: 12, color: "var(--fg-2)" }}>Area:</span>
+            <span style={{ fontWeight: 600 }}>{areaLabel}</span>
+            <button
+              onClick={clearArea}
+              style={{
+                background: "transparent", border: "none",
+                color: "var(--fg-2)", cursor: "pointer",
+                fontSize: 16, lineHeight: 1, padding: 0,
+              }}
+              title="Limpar filtro de area"
+            >
+              x
+            </button>
+          </div>
+        )}
+
         <span className="alerts-count">
           {loading ? "carregando..." : `${alerts.length} alerta(s)`}
         </span>
@@ -208,6 +261,7 @@ export default function AlertasPage() {
               <th>Categoria</th>
               <th>Status</th>
               <th>Iniciado</th>
+              <th>Acao</th>
             </tr>
           </thead>
           <tbody>
@@ -229,6 +283,24 @@ export default function AlertasPage() {
                   {fmtRelative(a.starts_at)}
                   <div style={{ fontSize: 11 }}>{fmtDateTime(a.starts_at)}</div>
                 </td>
+                <td>
+                  {a.status === "firing" ? (
+                    <button
+                      onClick={(ev) => handleAck(a.id, ev)}
+                      disabled={ackBusy === a.id}
+                      style={{
+                        padding: "4px 10px", borderRadius: 6,
+                        background: "var(--accent-strong, #334155)",
+                        color: "#fff", border: "none", cursor: "pointer",
+                        fontSize: 12, opacity: ackBusy === a.id ? 0.5 : 1,
+                      }}
+                    >
+                      {ackBusy === a.id ? "..." : "Ack"}
+                    </button>
+                  ) : (
+                    <span style={{ fontSize: 11, color: "var(--fg-2)" }}>-</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -245,7 +317,7 @@ export default function AlertasPage() {
                 {detail?.asset && <div className="drawer-subtitle">{detail.asset}</div>}
               </div>
               <button className="drawer-close" onClick={() => setSelectedId(null)}>
-                ×
+                x
               </button>
             </div>
 
@@ -285,21 +357,13 @@ export default function AlertasPage() {
                         {detail.fingerprint}
                       </dd>
                       {detail.asset_id && (
-
                         <>
-
                           <dt>ativo (CMDB)</dt>
-
                           <dd>
-
                             <span className="asset-link" onClick={() => router.push(`/ativos?open=${detail.asset_id}`)}>ver ativo</span>
-
                           </dd>
-
                         </>
-
                       )}
-
                       <dt>iniciado</dt>
                       <dd>{fmtDateTime(detail.starts_at)}</dd>
                       <dt>encerrado</dt>
@@ -355,6 +419,16 @@ export default function AlertasPage() {
           </aside>
         </>
       )}
+    </>
+  );
+}
+
+export default function AlertasPage() {
+  return (
+    <Shell title="Alertas">
+      <Suspense fallback={<div className="empty">carregando...</div>}>
+        <AlertasContent />
+      </Suspense>
     </Shell>
   );
 }

@@ -77,6 +77,7 @@ export type AlertDetail = Alert & {
 
 export type AlertFilter = {
   status?: AlertStatus;
+  area?: string;
   severity?: string;
   categoria?: string;
   limit?: number;
@@ -88,6 +89,7 @@ export async function listAlerts(filter: AlertFilter = {}): Promise<Alert[]> {
   if (filter.status) qs.set("status", filter.status);
   if (filter.severity) qs.set("severity", filter.severity);
   if (filter.categoria) qs.set("categoria", filter.categoria);
+  if (filter.area) qs.set("area", filter.area);
   if (filter.limit !== undefined) qs.set("limit", String(filter.limit));
   if (filter.offset !== undefined) qs.set("offset", String(filter.offset));
   const q = qs.toString();
@@ -100,6 +102,11 @@ export async function getAlert(id: string): Promise<AlertDetail> {
   const res = await apiFetch(`/alerts/${id}`);
   if (!res.ok) throw new Error(`Falha ao buscar alerta (HTTP ${res.status}).`);
   return res.json();
+}
+
+export async function ackAlert(id: string): Promise<void> {
+  const res = await apiFetch(`/alerts/${id}/ack`, { method: "POST" });
+  if (!res.ok) throw new Error(`Falha ao acked (HTTP ${res.status}).`);
 }
 
 /* Assets / CMDB (Fase 4.5) */
