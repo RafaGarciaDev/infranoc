@@ -1,4 +1,4 @@
-"""Alertas vindos do AlertManager (Fase 3 - Bloco 4)."""
+﻿"""Alertas vindos do AlertManager (Fase 3 - Bloco 4)."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from app.core.db import get_session
 from app.core.config import settings
 from app.core.deps import require
 from app.domain.models import Alert, AlertStatusChange, Asset, Tenant
+from app.application import automation_service
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
@@ -204,6 +205,10 @@ async def alertmanager_webhook(
             )
             created += 1
             status_changes += 1
+            if new_status == "firing":
+                await automation_service.on_alert_firing(session, tenant.id, row)
+            else:
+                await automation_service.on_alert_resolved(session, tenant.id, row)
         else:
             # atualiza sempre labels/annotations/generator (podem enriquecer)
             existing.labels = labels
@@ -229,6 +234,10 @@ async def alertmanager_webhook(
                 else:
                     existing.ends_at = None
                 status_changes += 1
+                if new_status == "firing":
+                    await automation_service.on_alert_firing(session, tenant.id, existing)
+                else:
+                    await automation_service.on_alert_resolved(session, tenant.id, existing)
             updated += 1
 
     await session.commit()

@@ -4,8 +4,13 @@ Grava entradas em AuditLog para toda escrita feita pelo modulo de Active
 Directory (e, no futuro, por qualquer outro modulo que precise auditar).
 
 Responsabilidade de seguranca: esta funcao NUNCA deve receber segredos
-(senhas, tokens, etc.) em `details` ou `target` — quem chama .log(...) e
+(senhas, tokens, etc.) em `details` ou `target` - quem chama .log(...) e
 responsavel por garantir isso antes de chamar.
+
+Fase 6b: adicionado parametro `tenant_id` opcional. Alguns chamadores (como
+o webhook do AlertManager) resolvem o tenant pelo slug da URL e nao passam
+pelo ContextVar current_tenant - para esses casos, o tenant deve ser passado
+explicitamente, senao o log() antigo silenciosamente nao gravava nada.
 """
 import logging
 import uuid
@@ -24,22 +29,27 @@ async def log(
     target: str | None = None,
     details: str | None = None,
     ip: str | None = None,
+    tenant_id: uuid.UUID | None = None,
 ) -> None:
-    """Registra uma entrada de auditoria e persiste (commit) imediatamente."""
-    tenant_id_raw = current_tenant.get()
-    if tenant_id_raw is None:
-        # Nao deveria acontecer em uso normal (get_current_claims sempre seta
-        # o tenant antes de qualquer rota autenticada rodar), mas nao derruba
-        # a operacao principal por causa disso — so registra o problema.
-        logger.warning(
-            "audit_service.log chamado sem tenant_id no contexto (action=%s, target=%s)",
-            action,
-            target,
-        )
-        return
+    """Registra uma entrada de auditoria e persiste (commit) imediatamente.
+
+    Se `tenant_id` for passado explicitamente, ele tem prioridade sobre o
+    ContextVar current_tenant (necessario para contextos como webhooks que
+    nao passam pelo middleware que popula o ContextVar).
+    """
+    if tenant_id is None:
+        tenant_id_raw = current_tenant.get()
+        if tenant_id_raw is None:
+            logger.warning(
+                "audit_service.log chamado sem tenant_id no contexto (action=%s, target=%s)",
+                action,
+                target,
+            )
+            return
+        tenant_id = uuid.UUID(tenant_id_raw)
 
     entry = AuditLog(
-        tenant_id=uuid.UUID(tenant_id_raw),
+        tenant_id=tenant_id,
         action=action,
         target=target,
         actor_email=current_user_email.get(),

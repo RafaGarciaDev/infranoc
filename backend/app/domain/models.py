@@ -284,3 +284,48 @@ class AdAuditEvent(Base):
     actor_sam: Mapped[str | None] = mapped_column(String(128), nullable=True)
     message: Mapped[str] = mapped_column(Text)
     raw: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+
+class TicketLink(Base):
+    __tablename__ = "ticket_links"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+    dedup_key: Mapped[str] = mapped_column(String(160), index=True)
+    alert_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    peppermint_ticket_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    vikunja_task_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="open")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+Index("ix_ticketlink_dedup_open", TicketLink.tenant_id, TicketLink.dedup_key, TicketLink.status)
+
+
+class IntegrationSettings(Base):
+    __tablename__ = "integration_settings"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, unique=True)
+
+    # Peppermint
+    peppermint_url: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    peppermint_email: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    peppermint_password: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    peppermint_default_email: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    peppermint_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Vikunja
+    vikunja_url: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    vikunja_token: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    vikunja_project_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    vikunja_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Automacao
+    auto_ticket_min_severity: Mapped[str] = mapped_column(String(16), default="warning")
+    auto_task_min_severity: Mapped[str] = mapped_column(String(16), default="critical")
+    storm_window_seconds: Mapped[int] = mapped_column(Integer, default=120)
+    storm_threshold: Mapped[int] = mapped_column(Integer, default=10)
+
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+    updated_by: Mapped[str | None] = mapped_column(String(256), nullable=True)

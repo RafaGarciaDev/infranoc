@@ -331,3 +331,92 @@ export async function listAdAudit(params?: {
   if (!res.ok) throw new Error(`Falha ao listar auditoria AD (HTTP ${res.status})`);
   return res.json();
 }
+
+/* ============================================================
+   Fase 6b â€” Integracoes (Peppermint) / Chamados
+   ============================================================ */
+
+/* Integracoes (Peppermint) â€” schema real de IntegrationSettings */
+export type IntegrationSettings = {
+  peppermint_url: string | null;
+  peppermint_email: string | null;
+  peppermint_password: string | null; // vem mascarado do backend (ex: "****")
+  peppermint_default_email: string | null;
+  peppermint_enabled: boolean;
+  auto_ticket_min_severity: Severity;
+  storm_window_seconds: number;
+  storm_threshold: number;
+  updated_at: string | null;
+  updated_by: string | null;
+};
+
+export type IntegrationTestResult = {
+  ok: boolean;
+  message: string;
+};
+
+export async function getIntegrationSettings(): Promise<IntegrationSettings> {
+  const res = await apiFetch("/integrations");
+  if (!res.ok) throw new Error(`Falha ao buscar configuracao (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function updateIntegrationSettings(
+  data: Partial<Omit<IntegrationSettings, "updated_at" | "updated_by">>
+): Promise<IntegrationSettings> {
+  const res = await apiFetch("/integrations", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`Falha ao salvar configuracao (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function testIntegrationConnection(): Promise<IntegrationTestResult> {
+  const res = await apiFetch("/integrations/test-connection", { method: "POST" });
+  if (!res.ok) {
+    let message = `Falha ao testar conexao (HTTP ${res.status}).`;
+    try {
+      const body = await res.json();
+      if (body?.detail) message = body.detail;
+    } catch {
+      /* ignore */
+    }
+    return { ok: false, message };
+  }
+  return res.json();
+}
+
+/* Chamados (TicketLink) â€” dados vem "achatados" do backend (JOIN com Alert) */
+export type TicketLinkStatus = "open" | "closed";
+
+export type TicketLink = {
+  id: string;
+  alert_id: string | null;
+  alertname: string | null;
+  asset: string | null;
+  severity: string | null;
+  ticket_id: string;
+  ticket_url: string;
+  status: TicketLinkStatus;
+  created_at: string;
+  closed_at: string | null;
+};
+
+export type TicketLinkFilter = {
+  status?: TicketLinkStatus;
+  limit?: number;
+  offset?: number;
+};
+
+export async function listTicketLinks(filter: TicketLinkFilter = {}): Promise<TicketLink[]> {
+  const qs = new URLSearchParams();
+  if (filter.status) qs.set("status", filter.status);
+  if (filter.limit !== undefined) qs.set("limit", String(filter.limit));
+  if (filter.offset !== undefined) qs.set("offset", String(filter.offset));
+  const q = qs.toString();
+  const res = await apiFetch(`/tickets${q ? `?${q}` : ""}`);
+  if (!res.ok) throw new Error(`Falha ao listar chamados (HTTP ${res.status}).`);
+  return res.json();
+}
