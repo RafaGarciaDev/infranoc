@@ -1,4 +1,4 @@
-"""
+﻿"""
 app/application/automation_service.py
 
 Motor de automacao: quando um alerta dispara, abre ticket no Peppermint
@@ -107,7 +107,6 @@ async def on_alert_firing(session: AsyncSession, tenant_id: uuid.UUID, alert: Al
         f"Categoria: {alert.categoria} | Impacto: {alert.impacto_negocio or '-'} | {ctx_flat}"
     )
     prio_pep = {"critical": "high", "warning": "medium", "high": "medium"}.get(alert.severity, "medium")
-    prio_vik = {"critical": 5, "warning": 3, "high": 3}.get(alert.severity, 3)
 
     link = TicketLink(tenant_id=tenant_id, dedup_key=key, alert_id=alert.id, status="open")
 
