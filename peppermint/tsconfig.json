@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "app/client/pages/index.js", "app/client/pages/_app.js", "app/client/pages/swagger.js", "apps/api/src/lib/imap.js", "apps/docs/pages/_app.jsx", "apps/docs/pages/index.mdx", "apps/docs/theme.config.jsx"],
+  "exclude": ["node_modules"]
+}

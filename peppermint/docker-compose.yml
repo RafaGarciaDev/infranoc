@@ -1,0 +1,59 @@
+# ─────────────────────────────────────────────────────────────
+# Peppermint — Docker nativo (build a partir do código local)
+#
+# Uso:
+#   1. Copie .env.example para .env e ajuste as senhas
+#   2. docker compose up -d --build
+#
+# Acesso:
+#   Interface web : http://localhost:3000
+#   API           : http://localhost:5003
+# ─────────────────────────────────────────────────────────────
+
+services:
+  peppermint_postgres:
+    container_name: peppermint_postgres
+    image: postgres:16-alpine
+    restart: unless-stopped
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-peppermint}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-peppermint}
+      POSTGRES_DB: ${DB_NAME:-peppermint}
+      TZ: ${TZ:-America/Sao_Paulo}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-peppermint} -d ${DB_NAME:-peppermint}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - peppermint
+
+  peppermint:
+    container_name: peppermint
+    build:
+      context: .
+      dockerfile: dockerfile
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+      - "${API_PORT:-5003}:5003"
+    depends_on:
+      peppermint_postgres:
+        condition: service_healthy
+    environment:
+      DB_USERNAME: ${DB_USERNAME:-peppermint}
+      DB_PASSWORD: ${DB_PASSWORD:-peppermint}
+      DB_HOST: peppermint_postgres
+      SECRET: ${SECRET:-troque-este-segredo}
+      TZ: ${TZ:-America/Sao_Paulo}
+    networks:
+      - peppermint
+
+networks:
+  peppermint:
+    driver: bridge
+
+volumes:
+  pgdata:

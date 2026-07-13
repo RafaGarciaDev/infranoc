@@ -19,6 +19,8 @@ const NAV: { section: string; items: NavEntry[] }[] = [
       { href: "/noc", label: "NOC", requires: "alerts.read" },
       { href: "/alertas", label: "Alertas", requires: "alerts.read" },
       { href: "/ativos", label: "Ativos", requires: "cmdb.read" },
+      { href: "/chamados", label: "Chamados", requires: "tickets.read" },
+      { href: "/integracoes", label: "Integracoes", requires: "integrations.manage" },
       { href: "/usuarios", label: "Usuarios (AD)", requires: "ad.read" },
       { href: "/observabilidade", label: "Observabilidade", requires: "obs.read" },
     ],

@@ -33,4 +33,22 @@ class Settings(BaseSettings):
     # AI (Fase 7) entra depois
 
 
+    # Peppermint (Fase 6b) - login via email/senha; token expira rapido, sem API key estatica
+    peppermint_url: str = "http://localhost:5003"
+    peppermint_email: str = "admin@valeverde.com"
+    peppermint_password: str = ""         # env INFRANOC_PEPPERMINT_PASSWORD
+    peppermint_client_id: str = ""        # env INFRANOC_PEPPERMINT_CLIENT_ID - Client ja cadastrado
+    peppermint_default_email: str = "noc@valeverde.com"  # e-mail do 'solicitante' nos tickets automaticos
+
+    # Vikunja (Fase 6b) - token de API estatico (gerado na UI, Settings -> API Tokens)
+    vikunja_url: str = "http://localhost:3456"
+    vikunja_token: str = ""               # env INFRANOC_VIKUNJA_TOKEN
+    vikunja_project_id: int = 0           # env INFRANOC_VIKUNJA_PROJECT_ID
+
+    # Automacao (Fase 6b)
+    auto_ticket_min_severity: str = "warning"
+    auto_task_min_severity: str = "critical"
+    storm_window_seconds: int = 120
+    storm_threshold: int = 10
+
 settings = Settings()

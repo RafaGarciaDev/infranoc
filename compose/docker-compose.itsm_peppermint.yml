@@ -1,0 +1,51 @@
+version: "3.8"
+
+# Fase 6b - ITSM (Peppermint) — CUSTOMIZADO (tema escuro + PT-BR)
+# Build nativo a partir do codigo em ../peppermint (nao usa mais a imagem do Docker Hub)
+#
+# Sobe junto com o stack principal:
+#   docker compose -f docker-compose.dev.yml -f docker-compose.itsm_peppermint.yml up -d --build
+#
+# Decisoes travadas (Kickoff 6b):
+# - Porta Peppermint UI: 3110 (Loki ja usa 3100)
+# - Segredos: placeholders (lab descartavel) - trocar antes de expor publicamente
+
+services:
+  peppermint_postgres:
+    container_name: infranoc-peppermint-postgres
+    image: postgres:16
+    restart: unless-stopped
+    volumes:
+      - peppermint_pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: peppermint
+      POSTGRES_PASSWORD: change_this_to_a_long_random_string
+      POSTGRES_DB: peppermint
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U peppermint -d peppermint"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  peppermint:
+    container_name: infranoc-peppermint
+    build:
+      context: ../peppermint
+      dockerfile: dockerfile
+    image: infranoc/peppermint:custom-pt-dark
+    restart: unless-stopped
+    depends_on:
+      peppermint_postgres:
+        condition: service_healthy
+    ports:
+      - "3110:3000"   # UI (Loki ocupa 3100, por isso 3110)
+      - "5003:5003"   # API
+    environment:
+      DB_USERNAME: "peppermint"
+      DB_PASSWORD: "change_this_to_a_long_random_string"
+      DB_HOST: "peppermint_postgres"
+      DATABASE_URL: "postgresql://peppermint:change_this_to_a_long_random_string@peppermint_postgres:5432/peppermint"
+      SECRET: "peppermint_secret_change_me"
+
+volumes:
+  peppermint_pgdata:

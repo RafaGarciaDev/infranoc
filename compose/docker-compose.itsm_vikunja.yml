@@ -1,0 +1,93 @@
+version: "3.8"
+
+# Fase 6b - ITSM (Peppermint)
+# Sobe junto com o stack principal:
+#   docker compose -f docker-compose.dev.yml -f docker-compose.itsm.yml up -d
+#
+# Decisoes travadas (Kickoff 6b):
+# - Porta Peppermint UI: 3110 (Loki ja usa 3100)
+# - Segredos: placeholders (lab descartavel) - trocar antes de expor publicamente
+# - Vikunja entra depois, em bloco separado neste mesmo arquivo
+
+services:
+  peppermint_postgres:
+    container_name: infranoc-peppermint-postgres
+    image: postgres:16
+    restart: unless-stopped
+    volumes:
+      - peppermint_pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: peppermint
+      POSTGRES_PASSWORD: change_this_to_a_long_random_string
+      POSTGRES_DB: peppermint
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U peppermint -d peppermint"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  peppermint:
+    container_name: infranoc-peppermint
+    image: pepperlabs/peppermint:latest
+    restart: unless-stopped
+    depends_on:
+      peppermint_postgres:
+        condition: service_healthy
+    ports:
+      - "3110:3000"   # UI (Loki ocupa 3100, por isso 3110)
+      - "5003:5003"   # API
+    environment:
+      DB_USERNAME: "peppermint"
+      DB_PASSWORD: "change_this_to_a_long_random_string"
+      DB_HOST: "peppermint_postgres"
+      SECRET: "peppermint_secret_change_me"
+      BASE_URL: "http://localhost:3110"
+
+  # ---------------------------------------------------------------
+  # Vikunja (Fase 6b-2)
+  # Imagem unica (frontend + API), porta padrao 3456 (sem conflito
+  # com o resto do stack). Registro de usuario funciona normal pela
+  # UI (sem a pegadinha de "external register" que o Peppermint tem).
+  # ---------------------------------------------------------------
+
+  vikunja_postgres:
+    container_name: infranoc-vikunja-postgres
+    image: postgres:16
+    restart: unless-stopped
+    volumes:
+      - vikunja_pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: vikunja
+      POSTGRES_PASSWORD: change_this_to_a_long_random_string
+      POSTGRES_DB: vikunja
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vikunja -d vikunja"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  vikunja:
+    container_name: infranoc-vikunja
+    image: vikunja/vikunja
+    restart: unless-stopped
+    user: "0:0"  # contorna erro de permissao no volume vikunja_files (lab, sem risco de seguranca multiusuario)
+    depends_on:
+      vikunja_postgres:
+        condition: service_healthy
+    ports:
+      - "3456:3456"
+    environment:
+      VIKUNJA_SERVICE_PUBLICURL: "http://localhost:3456"
+      VIKUNJA_DATABASE_HOST: "vikunja_postgres"
+      VIKUNJA_DATABASE_PASSWORD: "change_this_to_a_long_random_string"
+      VIKUNJA_DATABASE_TYPE: "postgres"
+      VIKUNJA_DATABASE_USER: "vikunja"
+      VIKUNJA_DATABASE_DATABASE: "vikunja"
+      VIKUNJA_SERVICE_SECRET: "vikunja_secret_change_me"
+    volumes:
+      - vikunja_files:/app/vikunja/files
+
+volumes:
+  peppermint_pgdata:
+  vikunja_pgdata:
+  vikunja_files:
