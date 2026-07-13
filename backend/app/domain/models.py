@@ -329,3 +329,19 @@ class IntegrationSettings(Base):
 
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
     updated_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
+
+
+from sqlalchemy import Text
+from pgvector.sqlalchemy import Vector
+
+
+class KnowledgeDoc(Base):
+    __tablename__ = "knowledge_docs"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+    source_type: Mapped[str] = mapped_column(String(50))  # runbook | asset_note | incident
+    source_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    title: Mapped[str] = mapped_column(String(255))
+    content: Mapped[str] = mapped_column(Text)
+    embedding = mapped_column(Vector(384))  # multilingual-e5-small = 384 dims
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

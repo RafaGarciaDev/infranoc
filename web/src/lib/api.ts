@@ -420,3 +420,28 @@ export async function listTicketLinks(filter: TicketLinkFilter = {}): Promise<Ti
   if (!res.ok) throw new Error(`Falha ao listar chamados (HTTP ${res.status}).`);
   return res.json();
 }
+
+/* IA */
+export async function askAiStream(
+  question: string,
+  history: { role: string; content: string }[],
+  onChunk: (text: string) => void,
+): Promise<void> {
+  const res = await apiFetch("/ai/chat/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, history }),
+  });
+  if (!res.ok) {
+    if (res.status === 403) throw new Error("Sem permissao para usar a IA (ai.chat).");
+    throw new Error("Falha na IA (HTTP " + res.status + ").");
+  }
+  if (!res.body) throw new Error("Resposta sem corpo (stream indisponivel).");
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    onChunk(decoder.decode(value, { stream: true }));
+  }
+}

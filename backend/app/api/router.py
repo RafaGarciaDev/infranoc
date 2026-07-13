@@ -1,5 +1,5 @@
 ﻿from fastapi import APIRouter
-from app.api.routes import alerts, assets, assets_import, auth, dashboard, directory, integrations, sectors, tickets
+from app.api.routes import ai, alerts, assets, assets_import, auth, dashboard, directory, integrations, sectors, tickets
 # Conforme as fases avancam, mais routers entram aqui:
 #   assets (Fase 4), directory (Fase 5), dashboard (Fase 6),
 #   alerts (Fase 3 - Bloco 4), ai (Fase 7)
@@ -13,3 +13,5 @@ api_router.include_router(directory.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(integrations.router)
 api_router.include_router(tickets.router)
+api_router.include_router(ai.router)
+
