@@ -612,3 +612,8 @@ input, select, textarea { font-family: inherit; }
   color: var(--fg-1);
   overflow-x: auto;
 }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
