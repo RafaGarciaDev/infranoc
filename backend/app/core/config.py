@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+﻿from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -30,7 +30,9 @@ class Settings(BaseSettings):
     ad_tenant_id: str = "c0f64a7a-f821-4b23-97be-5a610afba0e0"  # env INFRANOC_AD_TENANT_ID
     # Prometheus (Fase 6 - Dashboard NOC)
     prometheus_url: str = "http://localhost:9090"
-    # AI (Fase 7) entra depois
+    # AI (Fase 7)
+    ai_base_url: str = "http://localhost:11434"   # env INFRANOC_AI_BASE_URL
+    ai_model: str = "qwen2.5:3b"                    # env INFRANOC_AI_MODEL
 
 
     # Peppermint (Fase 6b) - login via email/senha; token expira rapido, sem API key estatica

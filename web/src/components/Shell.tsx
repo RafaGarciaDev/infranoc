@@ -23,6 +23,7 @@ const NAV: { section: string; items: NavEntry[] }[] = [
       { href: "/integracoes", label: "Integracoes", requires: "integrations.manage" },
       { href: "/usuarios", label: "Usuarios (AD)", requires: "ad.read" },
       { href: "/observabilidade", label: "Observabilidade", requires: "obs.read" },
+      { href: "/ia", label: "Assistente IA", requires: "ai.chat" },
     ],
   },
 ];

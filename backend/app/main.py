@@ -1,9 +1,12 @@
+from datetime import datetime, timezone
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.application.ad_audit_job import collect_ad_events
+from app.application.rag_reindex_job import reindex_runbooks
 from app.core.config import settings
 
 app = FastAPI(title="InfraNOC API", version="0.1.0")
@@ -30,6 +33,15 @@ async def _start_scheduler() -> None:
         id="ad_audit_job",
         replace_existing=True,
         misfire_grace_time=60,
+    )
+    _scheduler.add_job(
+        reindex_runbooks,
+        trigger="interval",
+        hours=6,
+        id="rag_reindex_job",
+        replace_existing=True,
+        misfire_grace_time=300,
+        next_run_time=datetime.now(timezone.utc),
     )
     _scheduler.start()
 
