@@ -19,6 +19,7 @@ export default function DashboardPage() {
   return (
     <Shell title="Dashboard">
       <section className="panel">
+        <img src="/Valeverde_logo.png" alt="Vale Verde" className="dash-logo" />
         <div className="panel-eyebrow">SESSAO AUTENTICADA</div>
         <h1 className="panel-title">Bem-vindo, {name}</h1>
         <p className="panel-text">

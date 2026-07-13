@@ -37,8 +37,7 @@ export default function LoginPage() {
     <main className="login-shell">
       <div className="login-card">
         <div className="brand">
-          <span className="brand-dot" />
-          <span className="brand-name">InfraNOC</span>
+          <img src="/Infranoc_logo.png" alt="InfraNOC" className="login-logo" />
           <span className="brand-sub">Centro de Operacoes - Vale Verde S/A</span>
         </div>
         <h1 className="login-title">Acesso ao painel</h1>
