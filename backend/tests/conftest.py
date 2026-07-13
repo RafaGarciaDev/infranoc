@@ -34,7 +34,7 @@ def pg_url():
     if not _HAS_TC:
         pytest.skip("testcontainers indisponível neste ambiente")
     try:
-        with PostgresContainer("postgres:16") as pg:
+        with PostgresContainer("pgvector/pgvector:pg16") as pg:
             raw = pg.get_connection_url()  # postgresql+psycopg2://...
             async_url = raw.replace("+psycopg2", "+asyncpg").replace(
                 "postgresql://", "postgresql+asyncpg://"
@@ -54,6 +54,8 @@ async def db_session(pg_url):
     engine = create_async_engine(pg_url, echo=False)
     # isolamento: schema do zero a cada teste
     async with engine.begin() as conn:
+        from sqlalchemy import text
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
