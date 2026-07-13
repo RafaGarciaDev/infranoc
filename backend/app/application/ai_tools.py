@@ -1,5 +1,6 @@
 # app/application/ai_tools.py
 import uuid
+from app.domain.enums import AssetType
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
@@ -75,9 +76,9 @@ async def producao_resumo(session: AsyncSession, tenant_id: uuid.UUID, dias: int
     prom = PrometheusClient()
     nomes = {1: "UHT", 2: "Iogurte", 3: "Queijos", 4: "Manteiga"}
     res = []
-    for l in nomes:
-        oee = await prom.query_scalar(f'avg_over_time(infranoc_oee{{line="{l}"}}[{dias}d])')
-        res.append({"linha": l, "nome": nomes[l], "oee_medio": round(oee or 0, 1)})
+    for linha_id in nomes:
+        oee = await prom.query_scalar(f'avg_over_time(infranoc_oee{{line="{linha_id}"}}[{dias}d])')
+        res.append({"linha": linha_id, "nome": nomes[linha_id], "oee_medio": round(oee or 0, 1)})
     return {"periodo_dias": dias, "linhas": res}
 
 
@@ -142,7 +143,6 @@ TOOLS = [
 ]
 
 
-from app.domain.enums import AssetType
 
 _TIPO_MAP = {
     "servidor": "Server", "servidores": "Server", "server": "Server",

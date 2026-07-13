@@ -1,4 +1,7 @@
 import uuid
+
+from sqlalchemy import Text
+from pgvector.sqlalchemy import Vector
 from datetime import datetime, timezone
 
 from sqlalchemy import (
@@ -11,7 +14,6 @@ from sqlalchemy import (
     Integer,
     String,
     Table,
-    Text,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -331,8 +333,6 @@ class IntegrationSettings(Base):
     updated_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
 
 
-from sqlalchemy import Text
-from pgvector.sqlalchemy import Vector
 
 
 class KnowledgeDoc(Base):
