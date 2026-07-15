@@ -1,0 +1,98 @@
+erDiagram
+    TENANTS ||--o{ USERS : possui
+    TENANTS ||--o{ ASSETS : possui
+    TENANTS ||--o{ ALERTS : possui
+    TENANTS ||--o{ KNOWLEDGE_DOCS : possui
+    TENANTS ||--o{ AUDIT_LOGS : possui
+    TENANTS ||--o{ INTEGRATION_SETTINGS : possui
+
+    USERS ||--o{ USER_ROLES : tem
+    ROLES ||--o{ USER_ROLES : atribuido_a
+    ROLES ||--o{ ROLE_PERMISSIONS : concede
+    PERMISSIONS ||--o{ ROLE_PERMISSIONS : concedida_em
+
+    ASSETS ||--o{ ALERTS : gera
+    ASSETS }o--|| SECTORS : pertence_a
+    ALERTS ||--o{ ALERT_STATUS_CHANGES : historico
+    ALERTS ||--o{ TICKET_LINKS : vinculado_a
+
+    TENANTS {
+        uuid id PK
+        string name
+        string slug
+    }
+    USERS {
+        uuid id PK
+        uuid tenant_id FK
+        string email
+        string display_name
+        string password_hash
+    }
+    ROLES {
+        uuid id PK
+        string name
+    }
+    PERMISSIONS {
+        uuid id PK
+        string code "ex: ai.chat, cmdb.admin"
+    }
+    ASSETS {
+        uuid id PK
+        uuid tenant_id FK
+        string hostname
+        string name
+        enum type "Server, PLC, Sensor, Camera..."
+        string site
+        enum criticality "Low, Medium, High, Critical"
+        string owner_team
+    }
+    ALERTS {
+        uuid id PK
+        uuid tenant_id FK
+        string alertname
+        string asset
+        string severity
+        string categoria
+        string impacto_negocio
+        string status "firing, acked, resolved"
+        datetime starts_at
+    }
+    ALERT_STATUS_CHANGES {
+        uuid id PK
+        uuid alert_id FK
+        string from_status
+        string to_status
+        datetime changed_at
+    }
+    TICKET_LINKS {
+        uuid id PK
+        uuid alert_id FK
+        string external_system "peppermint, vikunja"
+        string external_id
+    }
+    KNOWLEDGE_DOCS {
+        uuid id PK
+        uuid tenant_id FK
+        text content
+        vector embedding "pgvector, 384 dims"
+        string source_file
+    }
+    AUDIT_LOGS {
+        uuid id PK
+        uuid tenant_id FK
+        string action
+        string target
+        string actor_email
+        datetime created_at
+    }
+    INTEGRATION_SETTINGS {
+        uuid id PK
+        uuid tenant_id FK
+        string peppermint_url
+        string peppermint_password "mascarada no GET"
+        string vikunja_token
+    }
+    SECTORS {
+        uuid id PK
+        string name
+    }
