@@ -1,13 +1,14 @@
 version: "3.8"
 
-# Fase 6b - ITSM (Peppermint)
+# Fase 6b - ITSM (Peppermint) — CUSTOMIZADO (tema escuro + PT-BR)
+# Build nativo a partir do codigo em ../peppermint (nao usa mais a imagem do Docker Hub)
+#
 # Sobe junto com o stack principal:
-#   docker compose -f docker-compose.dev.yml -f docker-compose.itsm.yml up -d
+#   docker compose -f docker-compose.dev.yml -f docker-compose.itsm_peppermint.yml up -d --build
 #
 # Decisoes travadas (Kickoff 6b):
 # - Porta Peppermint UI: 3110 (Loki ja usa 3100)
 # - Segredos: placeholders (lab descartavel) - trocar antes de expor publicamente
-# - Vikunja entra depois, em bloco separado neste mesmo arquivo
 
 services:
   peppermint_postgres:
@@ -28,7 +29,10 @@ services:
 
   peppermint:
     container_name: infranoc-peppermint
-    image: pepperlabs/peppermint:latest
+    build:
+      context: ../peppermint
+      dockerfile: dockerfile
+    image: infranoc/peppermint:custom-pt-dark
     restart: unless-stopped
     depends_on:
       peppermint_postgres:
@@ -40,12 +44,8 @@ services:
       DB_USERNAME: "peppermint"
       DB_PASSWORD: "change_this_to_a_long_random_string"
       DB_HOST: "peppermint_postgres"
+      DATABASE_URL: "postgresql://peppermint:change_this_to_a_long_random_string@peppermint_postgres:5432/peppermint"
       SECRET: "peppermint_secret_change_me"
-
-  # ---------------------------------------------------------------
-  # Vikunja entra aqui no proximo sub-bloco (6b-2), apos validar
-  # que o Peppermint sobe e responde corretamente.
-  # ---------------------------------------------------------------
 
 volumes:
   peppermint_pgdata:
