@@ -1,5 +1,6 @@
 # app/application/ai_tools.py
 import uuid
+import unicodedata
 from app.domain.enums import AssetType
 from datetime import datetime, timedelta, timezone
 
@@ -25,7 +26,9 @@ async def buscar_ativos(
     if site:
         stmt = stmt.where(Asset.site == site)
     if criticidade:
-        stmt = stmt.where(Asset.criticality == criticidade)
+        crit = _normalizar_criticidade(criticidade)
+        if crit is not None:
+            stmt = stmt.where(Asset.criticality == crit)
     rows = (await session.execute(stmt.limit(50))).scalars().all()
     return {
         "total": len(rows),
@@ -160,6 +163,13 @@ _TIPO_MAP = {
     "hmi": "HMI", "scada": "SCADA", "sensor": "Sensor",
 }
 
+_CRIT_MAP = {
+    "baixa": "Low", "baixo": "Low", "low": "Low",
+    "media": "Medium", "medio": "Medium", "medium": "Medium",
+    "alta": "High", "alto": "High", "high": "High",
+    "critica": "Critical", "critico": "Critical", "critical": "Critical",
+}
+
 
 def _normalizar_tipo(tipo: str) -> AssetType | None:
     chave = tipo.strip().lower()
@@ -170,3 +180,9 @@ def _normalizar_tipo(tipo: str) -> AssetType | None:
         if membro.value.lower() == chave or membro.name.lower() == chave:
             return membro
     return None
+
+
+def _normalizar_criticidade(valor: str) -> str | None:
+    chave = unicodedata.normalize("NFKD", valor).encode("ascii", "ignore").decode("ascii")
+    chave = chave.strip().lower()
+    return _CRIT_MAP.get(chave)

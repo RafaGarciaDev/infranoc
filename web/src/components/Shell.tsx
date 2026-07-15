@@ -69,7 +69,7 @@ export default function Shell({
       <aside className="sidebar">
         <div className="sidebar-brand">
           <div className="brand">
-            <span className="brand-dot" />
+            <img src="/Infranoc_logo.png" alt="InfraNOC" className="brand-logo" />
             <span className="brand-name">InfraNOC</span>
             <span className="brand-sub">Vale Verde S/A</span>
           </div>

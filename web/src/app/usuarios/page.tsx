@@ -7,6 +7,10 @@ import UserDrawer from "./UserDrawer";
 import ResetPasswordModal from "./ResetPasswordModal";
 import ChangeGroupModal from "./ChangeGroupModal";
 
+function initials(name: string) {
+  return name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
+}
+
 function statusChip(u: ADUser) {
   if (u.locked) {
     return <span className="badge" style={{ background: "#dc2626", color: "#fff" }}>bloqueado</span>;
@@ -94,10 +98,31 @@ function UsuariosInner() {
         </label>
       </div>
 
-      {err && <div style={{ color: "var(--sev-critical)", marginBottom: 12 }}>Erro: {err}</div>}
+      {err && (
+        <div style={{ border: "1px solid rgba(220,38,38,.4)", background: "rgba(220,38,38,.08)", borderRadius: 8, padding: "14px 16px", marginBottom: 16 }}>
+          <div style={{ fontWeight: 600, color: "#f87171", marginBottom: 4 }}>Nao foi possivel carregar os usuarios do AD</div>
+          <div style={{ fontSize: 13, color: "var(--fg-2)" }}>{err}</div>
+          <div style={{ fontSize: 12, color: "var(--fg-2)", marginTop: 6 }}>Verifique se o controlador de dominio esta acessivel e tente novamente.</div>
+        </div>
+      )}
 
       {loading ? (
-        <div style={{ color: "var(--fg-2)" }}>Carregando usuarios...</div>
+        <table className="cmdb-table">
+          <thead>
+            <tr><th>Nome</th><th>SAM</th><th>Departamento</th><th>Cargo</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <tr key={i}>
+                {[0, 1, 2, 3, 4].map((j) => (
+                  <td key={j}>
+                    <div style={{ height: 12, borderRadius: 6, background: "rgba(148,163,184,.15)", width: j === 0 ? "70%" : "55%", animation: "pulse 1.5s ease-in-out infinite" }} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       ) : (
         <table className="cmdb-table">
           <thead>
@@ -110,11 +135,25 @@ function UsuariosInner() {
             </tr>
           </thead>
           <tbody>
+            {users.length === 0 && !err && (
+              <tr>
+                <td colSpan={5} style={{ textAlign: "center", padding: 32, color: "var(--fg-2)" }}>
+                  Nenhum usuario encontrado{debouncedSearch ? ` para "${debouncedSearch}"` : ""}.
+                </td>
+              </tr>
+            )}
             {users.map((u) => (
               <tr key={u.sam} onClick={() => setSelectedSam(u.sam)}>
                 <td>
-                  <div className="cell-name">{u.display_name}</div>
-                  <div className="cell-sub">{u.email}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(59,130,246,.15)", color: "#60a5fa", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
+                      {initials(u.display_name)}
+                    </div>
+                    <div>
+                      <div className="cell-name">{u.display_name}</div>
+                      <div className="cell-sub">{u.email}</div>
+                    </div>
+                  </div>
                 </td>
                 <td>{u.sam}</td>
                 <td>{u.department}</td>

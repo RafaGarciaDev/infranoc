@@ -25,7 +25,7 @@ export default function IaPage() {
     setError(null);
     setBusy(true);
     setInput("");
-    const history = msgs.map((m) => ({ role: m.role, content: m.content }));
+    const history: Msg[] = [];
     setMsgs((cur) => [...cur, { role: "user", content: q }, { role: "assistant", content: "" }]);
     try {
       await askAiStream(q, history, (chunk) => {
