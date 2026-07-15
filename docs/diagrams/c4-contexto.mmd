@@ -1,0 +1,26 @@
+C4Context
+    title InfraNOC — Diagrama de Contexto (C4 Nível 1)
+
+    Person(operador, "Operador de NOC", "Monitora infraestrutura, responde alertas, consulta o assistente de IA")
+    Person(admin, "Administrador", "Gerencia usuários AD, permissões, integrações")
+
+    System(infranoc, "InfraNOC", "Plataforma unificada de NOC, SOC, IAM, Observabilidade e IA local")
+
+    System_Ext(ad, "Active Directory", "Domínio infranoc.lab — 250 usuários reais (LDAP + WinRM)")
+    System_Ext(prometheus_stack, "Observabilidade", "Prometheus, Loki, Grafana, AlertManager")
+    System_Ext(ollama, "Ollama (local)", "LLM local (qwen2.5) + embeddings — sem API externa paga")
+    System_Ext(peppermint, "Peppermint", "ITSM self-hosted — abertura automática de chamados")
+    System_Ext(vikunja, "Vikunja", "Gestão de tarefas self-hosted")
+    System_Ext(ativos, "Ativos monitorados", "333 ativos: servidores, CLPs, câmaras frias, switches, sensores")
+
+    Rel(operador, infranoc, "Usa via navegador", "HTTPS")
+    Rel(admin, infranoc, "Administra via navegador", "HTTPS")
+
+    Rel(infranoc, ad, "Lê/escreve usuários, reset de senha", "LDAP / WinRM")
+    Rel(prometheus_stack, infranoc, "Envia alertas (webhook)", "HTTP")
+    Rel(ativos, prometheus_stack, "Expõe métricas", "Prometheus scrape")
+    Rel(infranoc, ollama, "Tool calling + RAG", "HTTP local")
+    Rel(infranoc, peppermint, "Abre/atualiza chamados", "REST API")
+    Rel(infranoc, vikunja, "Cria tarefas", "REST API")
+
+    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")

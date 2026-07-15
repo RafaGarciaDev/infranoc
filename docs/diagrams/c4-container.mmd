@@ -1,0 +1,34 @@
+C4Container
+    title InfraNOC — Diagrama de Container (C4 Nível 2)
+
+    Person(operador, "Operador de NOC")
+
+    System_Boundary(infranoc, "InfraNOC") {
+        Container(web, "Web (Next.js 15)", "TypeScript, React", "Dashboard NOC, mapa da planta, chat de IA, gestão de AD, CMDB")
+        Container(api, "API (FastAPI)", "Python 3.12", "Autenticação JWT, RBAC, multi-tenant, WebSocket, tool calling")
+        ContainerDb(postgres, "PostgreSQL + pgvector", "Postgres 16", "Dados relacionais + embeddings vetoriais (RAG)")
+        ContainerDb(redis, "Redis", "Redis 7", "Cache e filas")
+        Container(rag_job, "RAG Reindex Job", "APScheduler", "Reindexação periódica dos runbooks em embeddings")
+        Container(ad_audit_job, "AD Audit Job", "APScheduler + pypsrp", "Coleta eventos de segurança da DC a cada 15min")
+    }
+
+    System_Ext(ollama, "Ollama", "qwen2.5 (chat) + e5-small (embeddings) — 100% local")
+    System_Ext(ad, "Active Directory", "ldap3 + WinRM")
+    System_Ext(obs, "Prometheus / Grafana / Loki / AlertManager")
+    System_Ext(peppermint, "Peppermint (ITSM)")
+    System_Ext(vikunja, "Vikunja (tarefas)")
+
+    Rel(operador, web, "Usa", "HTTPS")
+    Rel(web, api, "Consome API + WebSocket", "JSON / WS")
+    Rel(api, postgres, "Lê/escreve", "SQLAlchemy async")
+    Rel(api, redis, "Cache/filas", "redis-py")
+    Rel(api, ollama, "Tool calling + geração", "HTTP")
+    Rel(rag_job, postgres, "Grava embeddings dos runbooks", "pgvector")
+    Rel(rag_job, ollama, "Gera embeddings", "HTTP")
+    Rel(api, ad, "Consulta/gerencia usuários", "LDAP / WinRM")
+    Rel(ad_audit_job, ad, "Coleta eventos", "WinRM")
+    Rel(obs, api, "Webhook de alertas", "HTTP")
+    Rel(api, peppermint, "Abre chamados", "REST")
+    Rel(api, vikunja, "Cria tarefas", "REST")
+
+    UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")
