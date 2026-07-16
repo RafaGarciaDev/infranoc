@@ -101,10 +101,12 @@ async def on_alert_firing(session: AsyncSession, tenant_id: uuid.UUID, alert: Al
             return
 
     ctx = await _asset_context(session, tenant_id, alert.asset)
-    ctx_flat = ctx.replace("\n", " | ") if ctx else "-"
     detail = (
-        f"Alerta: {alert.summary} | Severidade: {alert.severity} | "
-        f"Categoria: {alert.categoria} | Impacto: {alert.impacto_negocio or '-'} | {ctx_flat}"
+        f"**Alerta:** {alert.summary}\n\n"
+        f"**Severidade:** {alert.severity}\n"
+        f"**Categoria:** {alert.categoria}\n"
+        f"**Impacto:** {alert.impacto_negocio or '-'}\n\n"
+        f"{ctx or '-'}"
     )
     prio_pep = {"critical": "high", "warning": "medium", "high": "medium"}.get(alert.severity, "medium")
 

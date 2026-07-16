@@ -562,11 +562,11 @@
 
 /* Add these styles to hide scrollbars site-wide */
 html {
-  overflow: hidden;
+  overflow: auto;
 }
 
 body {
-  overflow: hidden;
+  overflow: auto;
 }
 
 /* Hide scrollbars but keep functionality */
