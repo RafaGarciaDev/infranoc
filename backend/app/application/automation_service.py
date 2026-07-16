@@ -17,6 +17,7 @@ Ajustes feitos em relacao ao documento original da Fase 6b, apos validacao manua
    entrada em AuditLog via audit_service.log(..., tenant_id=tenant_id).
 """
 import uuid
+import html
 from datetime import datetime, timezone, timedelta
 
 from sqlalchemy import select, func
@@ -101,12 +102,15 @@ async def on_alert_firing(session: AsyncSession, tenant_id: uuid.UUID, alert: Al
             return
 
     ctx = await _asset_context(session, tenant_id, alert.asset)
+    def esc(v):
+        return html.escape(str(v)) if v is not None else "-"
+    ctx_html = "".join(f"<p>{esc(line)}</p>" for line in (ctx or "-").split("\n"))
     detail = (
-        f"**Alerta:** {alert.summary}\n\n"
-        f"**Severidade:** {alert.severity}\n"
-        f"**Categoria:** {alert.categoria}\n"
-        f"**Impacto:** {alert.impacto_negocio or '-'}\n\n"
-        f"{ctx or '-'}"
+        f"<p><strong>Alerta:</strong> {esc(alert.summary)}</p>"
+        f"<p><strong>Severidade:</strong> {esc(alert.severity)}</p>"
+        f"<p><strong>Categoria:</strong> {esc(alert.categoria)}</p>"
+        f"<p><strong>Impacto:</strong> {esc(alert.impacto_negocio or '-')}</p>"
+        f"{ctx_html}"
     )
     prio_pep = {"critical": "high", "warning": "medium", "high": "medium"}.get(alert.severity, "medium")
 
