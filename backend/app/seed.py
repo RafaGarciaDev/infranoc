@@ -36,6 +36,10 @@ PERMISSIONS = [
     ("alerts.read", "Ler alertas"),
     ("alerts.ack", "Reconhecer (acknowledge) alertas"),
     ("audit.read", "Ler trilha de auditoria"),
+    ("ai.chat", "Usar o assistente de IA"),
+    ("integrations.read", "Ler configuracoes de integracao"),
+    ("integrations.write", "Editar configuracoes de integracao"),
+    ("tickets.read", "Ler chamados (ITSM)"),
 ]
 
 
