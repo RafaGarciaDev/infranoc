@@ -29,22 +29,18 @@ async def buscar_ativos(
         crit = _normalizar_criticidade(criticidade)
         if crit is not None:
             stmt = stmt.where(Asset.criticality == crit)
-    rows = (await session.execute(stmt.limit(50))).scalars().all()
-    return {
-        "total": len(rows),
-        "ativos": [
-        {
-            "hostname": a.hostname,
-            "name": a.name,
-            "type": str(a.type),
-            "site": a.site,
-            "location": a.location,
-            "criticality": str(a.criticality),
-            "owner_team": a.owner_team,
-        }
-            for a in rows
-        ],
-    }
+    from sqlalchemy import func as _func
+    count_stmt = stmt.with_only_columns(_func.count()).order_by(None)
+    total = (await session.execute(count_stmt)).scalar_one()
+    por_tipo: dict[str, int] = {}
+    if not tipo:
+        tipo_stmt = stmt.with_only_columns(Asset.type, _func.count()).group_by(Asset.type)
+        for t, c in (await session.execute(tipo_stmt)).all():
+            por_tipo[str(t)] = c
+    result = {"total": total}
+    if por_tipo:
+        result["por_tipo"] = por_tipo
+    return result
 
 
 async def consultar_alertas(
