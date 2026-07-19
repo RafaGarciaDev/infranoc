@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     alertmanager_webhook_pass: str = "changeme"
 
     # AD (Fase 5)
+    ad_mock: bool = False                            # env INFRANOC_AD_MOCK
     ad_server: str = "192.168.56.10"
     ad_port: int = 389
     ad_use_ssl: bool = False

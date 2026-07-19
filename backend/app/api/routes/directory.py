@@ -24,7 +24,9 @@ from app.application import audit_service
 from app.core.db import get_session
 from app.core.deps import require
 from app.domain.models import AdAuditEvent
+from app.core.config import settings
 from app.infrastructure.ldap_client import LdapClient
+from app.infrastructure.mock_ldap_client import MockLdapClient
 from app.infrastructure.ps_ad_ops import PsAdOps
 
 router = APIRouter(prefix="/directory", tags=["active-directory"])
@@ -32,7 +34,7 @@ router = APIRouter(prefix="/directory", tags=["active-directory"])
 # Um unico cliente por processo: ldap3.Server/Connection e pypsrp.Client
 # abrem a conexao sob demanda a cada operacao, entao nao ha estado
 # compartilhado perigoso em manter uma instancia so.
-ldap = LdapClient()
+ldap = MockLdapClient() if settings.ad_mock else LdapClient()
 ps = PsAdOps()
 
 

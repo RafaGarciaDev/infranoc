@@ -1,112 +1,168 @@
-# InfraNOC
+# InfraNOC — Plataforma de NOC, SOC, IAM e IA para Infraestrutura Industrial
 
-> Plataforma unificada de NOC, SOC, IAM e Observabilidade — monitorando a fábrica fictícia **Laticínios Vale Verde S/A**.
+**Monitoramento unificado de TI + OT para uma fábrica de laticínios fictícia, com IA local sobre toda a infraestrutura.**
 
-![Status](https://img.shields.io/badge/status-em%20desenvolvimento-yellow)
 ![CI](https://github.com/RafaGarciaDev/infranoc/actions/workflows/ci.yml/badge.svg)
-![Python](https://img.shields.io/badge/Python-3.12-3776AB)
-![FastAPI](https://img.shields.io/badge/FastAPI-009688)
+![Python](https://img.shields.io/badge/Python-3.12-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-teal)
 ![Next.js](https://img.shields.io/badge/Next.js-15-black)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791)
-![License](https://img.shields.io/badge/license-MIT-blue)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%20%2B%20pgvector-336791)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-<!-- GIF HERO: substituir pelo GIF de 15s do dashboard NOC em ação -->
-<!-- ![Demo do InfraNOC](docs/screenshots/hero.gif) -->
+---
 
-## Sobre
+## O que é isto
 
-Plataforma enterprise que unifica observabilidade de TI e OT industrial, gestão de Active Directory, CMDB, alertas com impacto de negócio e um assistente de IA local (RAG + tool calling) — tudo monitorando uma indústria de laticínios fictícia com **333 ativos** e **250 usuários** em Active Directory real.
+O **InfraNOC** é um Centro de Operações de Rede (NOC) completo, construído do zero para monitorar a infraestrutura fictícia da **Laticínios Vale Verde S/A**: 333 ativos entre servidores, CLPs industriais, câmaras frias, switches, sensores, câmeras e mais — combinando observabilidade de TI e OT, gestão de identidade via Active Directory real, um CMDB completo, integração com ferramentas de ITSM self-hosted e um assistente de IA que roda **100% local**, sem depender de nenhuma API paga.
 
-## Cenário
+Não é um CRUD de portfólio. É uma tentativa de reproduzir, em escala de laboratório, os mesmos problemas (e as mesmas soluções) que um NOC real enfrenta todos os dias.
 
-**Laticínios Vale Verde S/A** — indústria de médio porte, ~280 funcionários, operação 24/7 em 3 turnos. Matriz em Pouso Alegre/MG, filial comercial em São Paulo/SP. Produz leite UHT, queijos, iogurte e manteiga.
+## Dashboard NOC
 
-## Demo ao vivo
+![Dashboard NOC](docs/screenshots/01-dashboard-noc.png)
 
-<!-- TODO: preencher após deploy (Fase 8, item 5) -->
-🔗 **Acesse:** `<DOMINIO>`
-👤 **Credenciais de demonstração:** `demo@valeverde.com` / `demo`
-🎥 **Vídeo walkthrough (2min):** `<LINK_VIDEO>`
+O mapa da planta acende conforme a severidade dos alertas ativos, com OEE ao vivo por linha de produção e o painel de alertas priorizado por impacto de negócio.
 
-## Screenshots
+## Assistente de IA — RAG + Tool Calling, 100% local
 
-<!-- TODO: substituir pelos screenshots reais (docs/screenshots/) -->
-| Dashboard NOC | Assistente de IA (RAG local) | Mapa da planta |
-|---|---|---|
-| `<screenshot>` | `<screenshot>` | `<screenshot>` |
+![Assistente de IA respondendo sobre câmara fria](docs/screenshots/08-assistente-ia-camara-fria.png)
 
-## Stack
+Pergunte em linguagem natural sobre a infraestrutura ("O que fazer quando a câmara fria passa do limite de temperatura?") e o assistente combina busca semântica sobre os runbooks (RAG via pgvector) com chamadas de ferramentas reais (contagem de ativos, consulta de alertas) — rodando em um modelo Ollama local, sem enviar nenhum dado para fora do ambiente.
 
-**Backend:** Python 3.12 · FastAPI · SQLAlchemy · Alembic · PostgreSQL · pgvector · Redis
-**IA:** Ollama (qwen2.5, local) · embeddings multilingue (e5-small) · tool calling + RAG híbrido
-**Frontend:** Next.js 15 · TypeScript · Tailwind · shadcn/ui · ECharts
-**Observabilidade:** Prometheus · Loki · Grafana · AlertManager
-**Infra:** Docker · Active Directory · ldap3 · WebSocket
-**Integrações:** Peppermint (ITSM) · Vikunja (gestão de tarefas)
+## Mais telas
 
-## Módulos (MVP)
+| Observabilidade (Grafana embutido) | CMDB (603 ativos) |
+|---|---|
+| ![Observabilidade](docs/screenshots/02-grafana-observabilidade.png) | ![CMDB](docs/screenshots/03-cmdb-ativos.png) |
 
-Dashboard NOC · Observabilidade TI · Observabilidade OT (OEE/HACCP) · Rede · Energia/Infra física · Active Directory · Impressoras · CMDB · Alertas · Automação de chamados · **Assistente de IA local (RAG + tool calling)**
+| Alertas com impacto de negócio | Usuários do Active Directory (real) |
+|---|---|
+| ![Alertas](docs/screenshots/04-alertas.png) | ![AD](docs/screenshots/05-usuarios-ad.png) |
+
+| Integração com Peppermint (ITSM) | Painel nativo do Peppermint |
+|---|---|
+| ![Chamados](docs/screenshots/06-chamados-peppermint.png) | ![Peppermint](docs/screenshots/06b-peppermint-painel-nativo.png) |
 
 ## Arquitetura
 
-<!-- TODO: renderizar docs/diagrams/c4-container.mmd aqui, ou embutir com mermaid -->
-Diagramas C4 (contexto, container), ER e sequência (fluxo de alerta) em [`docs/diagrams/`](docs/diagrams/).
+```mermaid
+C4Container
+    title InfraNOC — Diagrama de Container (C4 Nível 2)
 
-## Subir tudo com 1 comando
+    Person(operador, "Operador de NOC")
 
-```powershell
-# 1. Copiar .env.example -> .env (fica gitignored)
-Copy-Item .env.example .env
+    System_Boundary(infranoc, "InfraNOC") {
+        Container(web, "Web (Next.js 15)", "TypeScript, React", "Dashboard NOC, mapa da planta, chat de IA, gestão de AD, CMDB")
+        Container(api, "API (FastAPI)", "Python 3.12", "Autenticação JWT, RBAC, multi-tenant, WebSocket, tool calling")
+        ContainerDb(postgres, "PostgreSQL + pgvector", "Postgres 16", "Dados relacionais + embeddings vetoriais (RAG)")
+        ContainerDb(redis, "Redis", "Redis 7", "Cache e filas")
+        Container(rag_job, "RAG Reindex Job", "APScheduler", "Reindexação periódica dos runbooks em embeddings")
+        Container(ad_audit_job, "AD Audit Job", "APScheduler + pypsrp", "Coleta eventos de segurança da DC a cada 15min")
+    }
 
-# 2. Subir a stack de observabilidade primeiro (cria a network)
-docker compose -f compose\docker-compose.observability.yml up -d
+    System_Ext(ollama, "Ollama", "qwen3 (chat) + e5-small (embeddings) — 100% local")
+    System_Ext(ad, "Active Directory", "ldap3 + WinRM")
+    System_Ext(obs, "Prometheus / Grafana / Loki / AlertManager")
+    System_Ext(peppermint, "Peppermint (ITSM)")
+    System_Ext(vikunja, "Vikunja (tarefas)")
 
-# 3. Subir dev (postgres + redis + backend + web)
-docker compose -f compose\docker-compose.dev.yml up -d --build
-
-# 4. Rodar seed (uma vez)
-docker exec infranoc-backend uv run python -m app.seed
+    Rel(operador, web, "Usa", "HTTPS")
+    Rel(web, api, "Consome API + WebSocket", "JSON / WS")
+    Rel(api, postgres, "Lê/escreve", "SQLAlchemy async")
+    Rel(api, redis, "Cache/filas", "redis-py")
+    Rel(api, ollama, "Tool calling + geração", "HTTP")
+    Rel(rag_job, postgres, "Grava embeddings dos runbooks", "pgvector")
+    Rel(rag_job, ollama, "Gera embeddings", "HTTP")
+    Rel(api, ad, "Consulta/gerencia usuários", "LDAP / WinRM")
+    Rel(ad_audit_job, ad, "Coleta eventos", "WinRM")
+    Rel(obs, api, "Webhook de alertas", "HTTP")
+    Rel(api, peppermint, "Abre chamados", "REST")
+    Rel(api, vikunja, "Cria tarefas", "REST")
 ```
 
-Endpoints:
-- Frontend: http://localhost:3000
-- Backend: http://localhost:8080 (docs em `/docs`)
-- Grafana: http://localhost:3001
-- Prometheus: http://localhost:9090
+Mais diagramas em [`docs/diagrams/`](docs/diagrams/): [C4 Contexto](docs/diagrams/c4-contexto.mmd), [Diagrama ER](docs/diagrams/er-diagram.mmd) e o [fluxo de sequência de um alerta de câmara fria](docs/diagrams/sequence-alerta-camara-fria.mmd) (do sensor até a resposta da IA).
+
+## Stack
+
+| Camada | Tecnologias |
+|---|---|
+| Backend | Python 3.12, FastAPI, SQLAlchemy 2.0 (async), Alembic, Pydantic v2, python-jose (JWT), passlib/bcrypt, APScheduler |
+| Frontend | Next.js 15, TypeScript, Tailwind, shadcn/ui, ECharts, WebSocket |
+| Dados | PostgreSQL 16 + pgvector (embeddings), Redis 7 |
+| Observabilidade | Prometheus, Loki, Grafana, AlertManager |
+| IA | Ollama local (qwen3, embeddings intfloat/multilingual-e5-small) — RAG + tool calling, sem API externa |
+| Diretório | Active Directory real (`ldap3` para leitura/escrita, `pypsrp`/WinRM para reset de senha) |
+| Integrações | Peppermint (ITSM self-hosted), Vikunja (kanban self-hosted) |
+| Infra | Docker, Docker Compose, Caddy (HTTPS), VMware Workstation |
+
+## Módulos
+
+1. Autenticação JWT + RBAC + multi-tenancy
+2. Observabilidade de TI e OT (Prometheus/Loki/Grafana/AlertManager)
+3. CMDB com 333 ativos e ciclo de vida
+4. Dashboard NOC (mapa da planta, OEE, WebSocket em tempo real)
+5. Alertas com impacto de negócio e acknowledge
+6. Gestão de Active Directory (250 usuários reais — leitura, escrita, reset de senha, auditoria)
+7. Integração com Peppermint (abertura automática de chamados)
+8. Integração com Vikunja (tarefas)
+9. Assistente de IA com RAG (pgvector) e tool calling — 100% local via Ollama
+10. Auditoria de todas as ações sensíveis
+11. Modo TV / fullscreen para exibição em NOC físico
+
+## Como rodar localmente
+
+Pré-requisitos: Docker + Docker Compose.
+
+```bash
+git clone https://github.com/RafaGarciaDev/infranoc.git
+cd infranoc
+cp .env.example .env   # edite com suas variáveis (senhas, INFRANOC_AI_MODEL etc.)
+docker compose -f compose/docker-compose.dev.yml up -d --build
+docker compose exec api uv run alembic upgrade head
+docker compose exec api uv run python -m app.seed
+```
+
+Acesse `http://localhost:3000` — login padrão do seed: `admin@valeverde.com` / `admin`.
+
+> O módulo de Active Directory (LDAP/WinRM) espera um domínio real acessível na rede — no ambiente de desenvolvimento, isso roda contra uma VM de laboratório (Windows Server + AD). Sem essa VM, os demais módulos funcionam normalmente; só a gestão de AD fica indisponível.
 
 ## Testes
 
-```powershell
+Suíte de testes com destaque para o **teste de isolamento multi-tenant** (garante que dados de um tenant nunca vazam para outro, mesmo com um bug de query). CI roda a suíte completa a cada push.
+
+```bash
+cd backend
 uv run pytest
 ```
 
-Cobertura inclui teste de **isolamento multi-tenant** (garante que dados de um tenant nunca vazam para outro).
+## Decisões de arquitetura (ADRs)
 
-## Decisões de arquitetura
-
-Ver [`docs/adrs/`](docs/adrs/) — incluindo o [ADR-002](docs/adrs/ADR-002-ia-hibrido-tool-calling-rag.md), que documenta o design híbrido de tool calling + RAG para o assistente de IA local.
+Registro das decisões técnicas mais relevantes em [`docs/adrs/`](docs/adrs/), incluindo a arquitetura híbrida de tool calling + RAG do assistente de IA.
 
 ## Roadmap
 
-**Feito (✅):**
-Dashboard NOC · Observabilidade TI/OT · CMDB · Alertas com contexto de negócio · Active Directory real · Assistente de IA local (RAG + tool calling) · ITSM (Peppermint) · Gestão de tarefas (Vikunja)
+**Feito:**
+- [x] Autenticação, RBAC, multi-tenancy
+- [x] Observabilidade TI + OT com 333 ativos
+- [x] CMDB completo
+- [x] Dashboard NOC em tempo real (WebSocket)
+- [x] Gestão de Active Directory real (250 usuários)
+- [x] Integração com Peppermint e Vikunja
+- [x] Assistente de IA local (RAG + tool calling)
 
-**Evolução futura:**
-- Backup (Veeam)
-- Segurança / SIEM (Wazuh + MITRE ATT&CK)
-- Automação de rede (Mikrotik/Ubiquiti)
-- Help Desk avançado
-- VPN + sessões de usuários logados
-
-## Status
-
-Em desenvolvimento. Projeto de portfólio demonstrando competências de nível Pleno/Sênior.
+**Próximos passos:**
+- [ ] Backup (Veeam)
+- [ ] Segurança/SIEM (Wazuh + MITRE ATT&CK)
+- [ ] Automação de rede (Mikrotik/Ubiquiti)
+- [ ] Help Desk ampliado
+- [ ] VPN + gestão de usuários remotos
+- [ ] Deploy público com HTTPS
 
 ## Autor
 
-**RafaGarciaDev** — [LinkedIn](https://www.linkedin.com/in/rafael-farias-garcia-6617b246/) · [GitHub](https://github.com/RafaGarciaDev)
+**Rafael Farias Garcia**
+[LinkedIn](https://www.linkedin.com/in/rafael-farias-garcia-6617b246) · [GitHub](https://github.com/RafaGarciaDev)
 
 ## Licença
 
-MIT
+MIT — veja [LICENSE](LICENSE).

@@ -54,7 +54,7 @@ export function ticketRoutes(fastify: FastifyInstance) {
         data: {
           name,
           title,
-          detail: JSON.stringify(detail),
+          detail: typeof detail === "string" ? detail : JSON.stringify(detail),
           priority: priority ? priority : "low",
           email,
           type: type ? type.toLowerCase() : "support",
@@ -158,7 +158,7 @@ export function ticketRoutes(fastify: FastifyInstance) {
         data: {
           name,
           title,
-          detail: JSON.stringify(detail),
+          detail: typeof detail === "string" ? detail : JSON.stringify(detail),
           priority: priority ? priority : "low",
           email,
           type: type ? type.toLowerCase() : "support",

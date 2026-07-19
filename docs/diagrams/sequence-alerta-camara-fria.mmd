@@ -1,7 +1,7 @@
 sequenceDiagram
-    title Fluxo de alerta — Câmara fria acima do limite de temperatura
+    title Fluxo de alerta - Camara fria acima do limite de temperatura
 
-    participant Sensor as Sensor de temperatura<br/>(câmara fria)
+    participant Sensor as Sensor de temperatura<br/>(camara fria)
     participant Prom as Prometheus
     participant AM as AlertManager
     participant API as API FastAPI<br/>(webhook)
@@ -9,23 +9,27 @@ sequenceDiagram
     participant WS as WebSocket<br/>(/dashboard/ws)
     participant Web as Dashboard NOC<br/>(Next.js)
     participant Op as Operador
+    participant Ollama as Ollama<br/>(qwen3 local)
 
-    Sensor->>Prom: expõe /metrics (temp_celsius)
+    Sensor->>Prom: expoe /metrics (temp_celsius)
     Prom->>Prom: avalia regra de alerta<br/>(temp > limite por N min)
     Prom->>AM: dispara alerta (severity=high)
     AM->>API: POST /api/alerts/webhook<br/>(alertname, asset, severity, impacto_negocio)
     API->>DB: cruza asset com CMDB<br/>(enriquece: site, criticidade, owner_team)
     API->>DB: persiste Alert (status=firing)
-    API-->>WS: notifica mudança (a cada 5s)
+    API-->>WS: notifica mudanca (a cada 5s)
     WS-->>Web: envia overview + plant status atualizados
-    Web->>Web: área "câmaras" acende<br/>(pior severidade ativa)
+    Web->>Web: area "camaras" acende<br/>(pior severidade ativa)
     Op->>Web: percebe alerta piscando no mapa
     Op->>Web: abre chat "Assistente de IA"
-    Web->>API: POST /api/ai/chat/stream<br/>("o que fazer quando a câmara fria<br/>passa do limite?")
+    Web->>API: POST /api/ai/chat/stream<br/>("o que fazer quando a camara fria<br/>passa do limite?")
     API->>DB: busca runbook relevante (RAG, pgvector)
-    API->>API: injeta runbook no system prompt
-    API->>API: Ollama (qwen2.5) gera resposta<br/>+ tool calling (buscar_ativos, consultar_alertas)
-    API-->>Web: stream da resposta<br/>(disjuntor QDF-07, sensor CF-02, escalonamento)
+    API->>Ollama: envia prompt + runbook + tools<br/>(buscar_ativos, consultar_alertas)
+    Ollama->>API: tool_calls (se necessario)
+    API->>DB: executa tool (busca dados reais)
+    API->>Ollama: devolve resultado da tool
+    Ollama-->>API: resposta final<br/>(disjuntor QDF-07, sensor CF-02, escalonamento)
+    API-->>Web: stream da resposta
     Op->>Web: segue o runbook, resolve o incidente
     Op->>Web: clica "Acknowledge"
     Web->>API: POST /api/alerts/{id}/ack
