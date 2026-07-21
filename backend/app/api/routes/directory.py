@@ -472,3 +472,41 @@ async def list_group_members_route(
 ) -> list[GroupMemberOut]:
     rows = await run_in_threadpool(ldap.list_group_members, group_dn)
     return [GroupMemberOut(**r) for r in rows]
+
+
+# ------------------------------------------------------------------
+# Fase 9c - GPOs (leitura)
+# ------------------------------------------------------------------
+class GPOOut(BaseModel):
+    name: str | None
+    id: str | None
+    status: str | None
+    created: str | None
+    modified: str | None
+
+
+@router.get("/gpos", response_model=list[GPOOut])
+async def list_gpos_route(
+    claims: Annotated[dict, Depends(require("ad.read"))],
+) -> list[GPOOut]:
+    rows = await run_in_threadpool(ps.list_gpos)
+    return [GPOOut(**r) for r in rows]
+
+
+# ------------------------------------------------------------------
+# Fase 9c - Sessoes RDP ativas
+# ------------------------------------------------------------------
+class RdpSessionOut(BaseModel):
+    username: str
+    session_name: str
+    state: str
+    idle_time: str
+    logon_time: str
+
+
+@router.get("/rdp-sessions", response_model=list[RdpSessionOut])
+async def list_rdp_sessions_route(
+    claims: Annotated[dict, Depends(require("ad.read"))],
+) -> list[RdpSessionOut]:
+    rows = await run_in_threadpool(ps.list_rdp_sessions)
+    return [RdpSessionOut(**r) for r in rows]

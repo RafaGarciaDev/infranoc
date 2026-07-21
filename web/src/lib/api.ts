@@ -724,3 +724,33 @@ export async function getGroupMembers(groupDn: string): Promise<GroupMember[]> {
   if (!res.ok) throw new Error(`Falha ao buscar membros (HTTP ${res.status}).`);
   return res.json();
 }
+
+
+/* GPOs e Sessoes RDP (Active Directory) - Fase 9c */
+export type GPO = {
+  name: string | null;
+  id: string | null;
+  status: string | null;
+  created: string | null;
+  modified: string | null;
+};
+
+export async function listGPOs(): Promise<GPO[]> {
+  const res = await apiFetch(`/directory/gpos`);
+  if (!res.ok) throw new Error(`Falha ao listar GPOs (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export type RdpSession = {
+  username: string;
+  session_name: string;
+  state: string;
+  idle_time: string;
+  logon_time: string;
+};
+
+export async function listRdpSessions(): Promise<RdpSession[]> {
+  const res = await apiFetch(`/directory/rdp-sessions`);
+  if (!res.ok) throw new Error(`Falha ao listar sessoes RDP (HTTP ${res.status}).`);
+  return res.json();
+}
