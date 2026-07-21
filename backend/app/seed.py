@@ -43,6 +43,7 @@ PERMISSIONS = [
     ("wiki.read", "Ler paginas da base de conhecimento"),
     ("wiki.write", "Criar/editar paginas da base de conhecimento"),
     ("ad.ou.manage", "Criar/renomear/mover/excluir OUs do Active Directory"),
+    ("ad.group.manage", "Criar/editar/excluir grupos do Active Directory"),
 ]
 
 

@@ -284,3 +284,102 @@ async def delete_ou_route(
         raise HTTPException(400, str(e))
     await audit_service.log(session, "ad.ou.delete", target=body.dn)
     return {"ok": True}
+
+
+# ------------------------------------------------------------------
+# Fase 9c - Gestao de Grupos
+# ------------------------------------------------------------------
+class GroupOut(BaseModel):
+    name: str
+    dn: str
+    description: str
+    scope: str
+    group_type: str
+    member_count: int
+
+
+class GroupCreateIn(BaseModel):
+    name: str
+    parent_dn: str | None = None
+    scope: str = "Global"
+    group_type: str = "Security"
+    description: str = ""
+
+
+class GroupRenameIn(BaseModel):
+    dn: str
+    new_name: str
+
+
+class GroupUpdateIn(BaseModel):
+    dn: str
+    description: str | None = None
+    scope: str | None = None
+    group_type: str | None = None
+
+
+class GroupDeleteIn(BaseModel):
+    dn: str
+
+
+@router.get("/groups", response_model=list[GroupOut])
+async def list_groups_route(
+    claims: Annotated[dict, Depends(require("ad.read"))],
+    base_dn: str | None = None,
+) -> list[GroupOut]:
+    rows = await run_in_threadpool(ldap.list_groups, base_dn)
+    return [GroupOut(**r) for r in rows]
+
+
+@router.post("/groups")
+async def create_group_route(
+    body: GroupCreateIn,
+    claims: Annotated[dict, Depends(require("ad.group.manage"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict:
+    try:
+        dn = await run_in_threadpool(
+            ldap.create_group, body.name, body.parent_dn, body.scope, body.group_type, body.description
+        )
+    except ValueError as e:
+        from fastapi import HTTPException
+        raise HTTPException(400, str(e))
+    await audit_service.log(session, "ad.group.create", target=dn)
+    return {"dn": dn}
+
+
+@router.post("/groups/rename")
+async def rename_group_route(
+    body: GroupRenameIn,
+    claims: Annotated[dict, Depends(require("ad.group.manage"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict:
+    new_dn = await run_in_threadpool(ldap.rename_group, body.dn, body.new_name)
+    await audit_service.log(session, "ad.group.rename", target=f"{body.dn}->{new_dn}")
+    return {"dn": new_dn}
+
+
+@router.post("/groups/update")
+async def update_group_route(
+    body: GroupUpdateIn,
+    claims: Annotated[dict, Depends(require("ad.group.manage"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict:
+    try:
+        await run_in_threadpool(ldap.update_group, body.dn, body.description, body.scope, body.group_type)
+    except ValueError as e:
+        from fastapi import HTTPException
+        raise HTTPException(400, str(e))
+    await audit_service.log(session, "ad.group.update", target=body.dn)
+    return {"ok": True}
+
+
+@router.post("/groups/delete")
+async def delete_group_route(
+    body: GroupDeleteIn,
+    claims: Annotated[dict, Depends(require("ad.group.manage"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict:
+    await run_in_threadpool(ldap.delete_group, body.dn)
+    await audit_service.log(session, "ad.group.delete", target=body.dn)
+    return {"ok": True}

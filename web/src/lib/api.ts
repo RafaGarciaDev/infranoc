@@ -592,3 +592,74 @@ export async function deleteOU(dn: string): Promise<void> {
     throw new Error(msg);
   }
 }
+
+
+/* Gestao de Grupos (Active Directory) - Fase 9c */
+export type ADGroupScope = "Global" | "DomainLocal" | "Universal";
+export type ADGroupType = "Security" | "Distribution";
+
+export type ADGroup = {
+  name: string;
+  dn: string;
+  description: string;
+  scope: ADGroupScope;
+  group_type: ADGroupType;
+  member_count: number;
+};
+
+export async function listGroups(baseDn?: string): Promise<ADGroup[]> {
+  const qs = baseDn ? `?base_dn=${encodeURIComponent(baseDn)}` : "";
+  const res = await apiFetch(`/directory/groups${qs}`);
+  if (!res.ok) throw new Error(`Falha ao listar grupos (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function createGroup(input: {
+  name: string; parentDn?: string; scope?: ADGroupScope; groupType?: ADGroupType; description?: string;
+}): Promise<{ dn: string }> {
+  const res = await apiFetch(`/directory/groups`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: input.name,
+      parent_dn: input.parentDn,
+      scope: input.scope ?? "Global",
+      group_type: input.groupType ?? "Security",
+      description: input.description ?? "",
+    }),
+  });
+  if (!res.ok) throw new Error(`Falha ao criar grupo (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function renameGroup(dn: string, newName: string): Promise<{ dn: string }> {
+  const res = await apiFetch(`/directory/groups/rename`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dn, new_name: newName }),
+  });
+  if (!res.ok) throw new Error(`Falha ao renomear grupo (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function updateGroup(dn: string, changes: {
+  description?: string; scope?: ADGroupScope; groupType?: ADGroupType;
+}): Promise<void> {
+  const res = await apiFetch(`/directory/groups/update`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      dn, description: changes.description, scope: changes.scope, group_type: changes.groupType,
+    }),
+  });
+  if (!res.ok) throw new Error(`Falha ao atualizar grupo (HTTP ${res.status}).`);
+}
+
+export async function deleteGroup(dn: string): Promise<void> {
+  const res = await apiFetch(`/directory/groups/delete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dn }),
+  });
+  if (!res.ok) throw new Error(`Falha ao excluir grupo (HTTP ${res.status}).`);
+}
