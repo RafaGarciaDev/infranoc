@@ -253,6 +253,7 @@ export type ADUser = {
   locked: boolean;
   dn: string;
   groups: string[];
+  last_logon: string | null;
 };
 
 export type ADSummary = {
@@ -591,4 +592,203 @@ export async function deleteOU(dn: string): Promise<void> {
     } catch {}
     throw new Error(msg);
   }
+}
+
+
+/* Gestao de Grupos (Active Directory) - Fase 9c */
+export type ADGroupScope = "Global" | "DomainLocal" | "Universal";
+export type ADGroupType = "Security" | "Distribution";
+
+export type ADGroup = {
+  name: string;
+  dn: string;
+  description: string;
+  scope: ADGroupScope;
+  group_type: ADGroupType;
+  member_count: number;
+};
+
+export async function listGroups(baseDn?: string): Promise<ADGroup[]> {
+  const qs = baseDn ? `?base_dn=${encodeURIComponent(baseDn)}` : "";
+  const res = await apiFetch(`/directory/groups${qs}`);
+  if (!res.ok) throw new Error(`Falha ao listar grupos (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function createGroup(input: {
+  name: string; parentDn?: string; scope?: ADGroupScope; groupType?: ADGroupType; description?: string;
+}): Promise<{ dn: string }> {
+  const res = await apiFetch(`/directory/groups`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: input.name,
+      parent_dn: input.parentDn,
+      scope: input.scope ?? "Global",
+      group_type: input.groupType ?? "Security",
+      description: input.description ?? "",
+    }),
+  });
+  if (!res.ok) throw new Error(`Falha ao criar grupo (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function renameGroup(dn: string, newName: string): Promise<{ dn: string }> {
+  const res = await apiFetch(`/directory/groups/rename`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dn, new_name: newName }),
+  });
+  if (!res.ok) throw new Error(`Falha ao renomear grupo (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function updateGroup(dn: string, changes: {
+  description?: string; scope?: ADGroupScope; groupType?: ADGroupType;
+}): Promise<void> {
+  const res = await apiFetch(`/directory/groups/update`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      dn, description: changes.description, scope: changes.scope, group_type: changes.groupType,
+    }),
+  });
+  if (!res.ok) throw new Error(`Falha ao atualizar grupo (HTTP ${res.status}).`);
+}
+
+export async function deleteGroup(dn: string): Promise<void> {
+  const res = await apiFetch(`/directory/groups/delete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dn }),
+  });
+  if (!res.ok) throw new Error(`Falha ao excluir grupo (HTTP ${res.status}).`);
+}
+
+
+/* Gestao de Computadores (Active Directory) - Fase 9c */
+export type ADComputer = {
+  name: string;
+  dn: string;
+  os: string;
+  disabled: boolean;
+};
+
+export async function listComputers(baseDn?: string): Promise<ADComputer[]> {
+  const qs = baseDn ? `?base_dn=${encodeURIComponent(baseDn)}` : "";
+  const res = await apiFetch(`/directory/computers${qs}`);
+  if (!res.ok) throw new Error(`Falha ao listar computadores (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function setComputerEnabled(dn: string, value: boolean): Promise<void> {
+  const res = await apiFetch(`/directory/computers/enable`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dn, value }),
+  });
+  if (!res.ok) throw new Error(`Falha ao alterar status (HTTP ${res.status}).`);
+}
+
+export async function moveComputer(dn: string, newParentDn: string): Promise<{ dn: string }> {
+  const res = await apiFetch(`/directory/computers/move`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dn, new_parent_dn: newParentDn }),
+  });
+  if (!res.ok) throw new Error(`Falha ao mover computador (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function deleteComputer(dn: string): Promise<void> {
+  const res = await apiFetch(`/directory/computers/delete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dn }),
+  });
+  if (!res.ok) throw new Error(`Falha ao excluir computador (HTTP ${res.status}).`);
+}
+
+
+/* Membros de grupo (diretos vs herdados) - Fase 9c */
+export type GroupMember = {
+  dn: string;
+  name: string;
+  sam: string | null;
+  direct: boolean;
+  via: string[];
+};
+
+export async function getGroupMembers(groupDn: string): Promise<GroupMember[]> {
+  const res = await apiFetch(`/directory/groups/members?group_dn=${encodeURIComponent(groupDn)}`);
+  if (!res.ok) throw new Error(`Falha ao buscar membros (HTTP ${res.status}).`);
+  return res.json();
+}
+
+
+/* GPOs e Sessoes RDP (Active Directory) - Fase 9c */
+export type GPO = {
+  name: string | null;
+  id: string | null;
+  status: string | null;
+  created: string | null;
+  modified: string | null;
+};
+
+export async function listGPOs(): Promise<GPO[]> {
+  const res = await apiFetch(`/directory/gpos`);
+  if (!res.ok) throw new Error(`Falha ao listar GPOs (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export type RdpSession = {
+  username: string;
+  session_name: string;
+  state: string;
+  idle_time: string;
+  logon_time: string;
+};
+
+export async function listRdpSessions(): Promise<RdpSession[]> {
+  const res = await apiFetch(`/directory/rdp-sessions`);
+  if (!res.ok) throw new Error(`Falha ao listar sessoes RDP (HTTP ${res.status}).`);
+  return res.json();
+}
+
+
+/* Bulk operations + reset de senha em massa - Fase 9c */
+export type BulkResultItem = {
+  sam: string;
+  ok: boolean;
+  error: string | null;
+};
+
+export async function bulkEnableUsers(sams: string[], value: boolean): Promise<BulkResultItem[]> {
+  const res = await apiFetch(`/directory/bulk/enable`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sams, value }),
+  });
+  if (!res.ok) throw new Error(`Falha na operacao em massa (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function bulkChangeGroup(sams: string[], groupDn: string, add: boolean): Promise<BulkResultItem[]> {
+  const res = await apiFetch(`/directory/bulk/group`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sams, group_dn: groupDn, add }),
+  });
+  if (!res.ok) throw new Error(`Falha na operacao em massa (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function bulkResetPassword(sams: string[], newPassword: string, mustChange = true): Promise<BulkResultItem[]> {
+  const res = await apiFetch(`/directory/bulk/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sams, new_password: newPassword, must_change: mustChange }),
+  });
+  if (!res.ok) throw new Error(`Falha no reset em massa (HTTP ${res.status}).`);
+  return res.json();
 }

@@ -51,6 +51,7 @@ class ADUserOut(BaseModel):
     locked: bool
     dn: str
     groups: list[str]
+    last_logon: str | None = None
 
 
 class ADSummaryOut(BaseModel):
@@ -284,3 +285,313 @@ async def delete_ou_route(
         raise HTTPException(400, str(e))
     await audit_service.log(session, "ad.ou.delete", target=body.dn)
     return {"ok": True}
+
+
+# ------------------------------------------------------------------
+# Fase 9c - Gestao de Grupos
+# ------------------------------------------------------------------
+class GroupOut(BaseModel):
+    name: str
+    dn: str
+    description: str
+    scope: str
+    group_type: str
+    member_count: int
+
+
+class GroupCreateIn(BaseModel):
+    name: str
+    parent_dn: str | None = None
+    scope: str = "Global"
+    group_type: str = "Security"
+    description: str = ""
+
+
+class GroupRenameIn(BaseModel):
+    dn: str
+    new_name: str
+
+
+class GroupUpdateIn(BaseModel):
+    dn: str
+    description: str | None = None
+    scope: str | None = None
+    group_type: str | None = None
+
+
+class GroupDeleteIn(BaseModel):
+    dn: str
+
+
+@router.get("/groups", response_model=list[GroupOut])
+async def list_groups_route(
+    claims: Annotated[dict, Depends(require("ad.read"))],
+    base_dn: str | None = None,
+) -> list[GroupOut]:
+    rows = await run_in_threadpool(ldap.list_groups, base_dn)
+    return [GroupOut(**r) for r in rows]
+
+
+@router.post("/groups")
+async def create_group_route(
+    body: GroupCreateIn,
+    claims: Annotated[dict, Depends(require("ad.group.manage"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict:
+    try:
+        dn = await run_in_threadpool(
+            ldap.create_group, body.name, body.parent_dn, body.scope, body.group_type, body.description
+        )
+    except ValueError as e:
+        from fastapi import HTTPException
+        raise HTTPException(400, str(e))
+    await audit_service.log(session, "ad.group.create", target=dn)
+    return {"dn": dn}
+
+
+@router.post("/groups/rename")
+async def rename_group_route(
+    body: GroupRenameIn,
+    claims: Annotated[dict, Depends(require("ad.group.manage"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict:
+    new_dn = await run_in_threadpool(ldap.rename_group, body.dn, body.new_name)
+    await audit_service.log(session, "ad.group.rename", target=f"{body.dn}->{new_dn}")
+    return {"dn": new_dn}
+
+
+@router.post("/groups/update")
+async def update_group_route(
+    body: GroupUpdateIn,
+    claims: Annotated[dict, Depends(require("ad.group.manage"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict:
+    try:
+        await run_in_threadpool(ldap.update_group, body.dn, body.description, body.scope, body.group_type)
+    except ValueError as e:
+        from fastapi import HTTPException
+        raise HTTPException(400, str(e))
+    await audit_service.log(session, "ad.group.update", target=body.dn)
+    return {"ok": True}
+
+
+@router.post("/groups/delete")
+async def delete_group_route(
+    body: GroupDeleteIn,
+    claims: Annotated[dict, Depends(require("ad.group.manage"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict:
+    await run_in_threadpool(ldap.delete_group, body.dn)
+    await audit_service.log(session, "ad.group.delete", target=body.dn)
+    return {"ok": True}
+
+
+# ------------------------------------------------------------------
+# Fase 9c - Gestao de Computadores
+# ------------------------------------------------------------------
+class ComputerOut(BaseModel):
+    name: str
+    dn: str
+    os: str
+    disabled: bool
+
+
+class ComputerEnableIn(BaseModel):
+    dn: str
+    value: bool = True
+
+
+class ComputerMoveIn(BaseModel):
+    dn: str
+    new_parent_dn: str
+
+
+class ComputerDeleteIn(BaseModel):
+    dn: str
+
+
+@router.get("/computers", response_model=list[ComputerOut])
+async def list_computers_route(
+    claims: Annotated[dict, Depends(require("ad.read"))],
+    base_dn: str | None = None,
+) -> list[ComputerOut]:
+    rows = await run_in_threadpool(ldap.list_computers, base_dn)
+    return [ComputerOut(**r) for r in rows]
+
+
+@router.post("/computers/enable")
+async def set_computer_enabled_route(
+    body: ComputerEnableIn,
+    claims: Annotated[dict, Depends(require("ad.write"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict:
+    await run_in_threadpool(ldap.set_computer_enabled, body.dn, body.value)
+    await audit_service.log(
+        session, "ad.computer.enable" if body.value else "ad.computer.disable", target=body.dn
+    )
+    return {"ok": True}
+
+
+@router.post("/computers/move")
+async def move_computer_route(
+    body: ComputerMoveIn,
+    claims: Annotated[dict, Depends(require("ad.write"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict:
+    new_dn = await run_in_threadpool(ldap.move_computer, body.dn, body.new_parent_dn)
+    await audit_service.log(session, "ad.computer.move", target=f"{body.dn}->{new_dn}")
+    return {"dn": new_dn}
+
+
+@router.post("/computers/delete")
+async def delete_computer_route(
+    body: ComputerDeleteIn,
+    claims: Annotated[dict, Depends(require("ad.write"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict:
+    await run_in_threadpool(ldap.delete_computer, body.dn)
+    await audit_service.log(session, "ad.computer.delete", target=body.dn)
+    return {"ok": True}
+
+
+# ------------------------------------------------------------------
+# Fase 9c - Membros de grupo (diretos vs herdados)
+# ------------------------------------------------------------------
+class GroupMemberOut(BaseModel):
+    dn: str
+    name: str
+    sam: str | None
+    direct: bool
+    via: list[str]
+
+
+@router.get("/groups/members", response_model=list[GroupMemberOut])
+async def list_group_members_route(
+    claims: Annotated[dict, Depends(require("ad.read"))],
+    group_dn: str,
+) -> list[GroupMemberOut]:
+    rows = await run_in_threadpool(ldap.list_group_members, group_dn)
+    return [GroupMemberOut(**r) for r in rows]
+
+
+# ------------------------------------------------------------------
+# Fase 9c - GPOs (leitura)
+# ------------------------------------------------------------------
+class GPOOut(BaseModel):
+    name: str | None
+    id: str | None
+    status: str | None
+    created: str | None
+    modified: str | None
+
+
+@router.get("/gpos", response_model=list[GPOOut])
+async def list_gpos_route(
+    claims: Annotated[dict, Depends(require("ad.read"))],
+) -> list[GPOOut]:
+    rows = await run_in_threadpool(ps.list_gpos)
+    return [GPOOut(**r) for r in rows]
+
+
+# ------------------------------------------------------------------
+# Fase 9c - Sessoes RDP ativas
+# ------------------------------------------------------------------
+class RdpSessionOut(BaseModel):
+    username: str
+    session_name: str
+    state: str
+    idle_time: str
+    logon_time: str
+
+
+@router.get("/rdp-sessions", response_model=list[RdpSessionOut])
+async def list_rdp_sessions_route(
+    claims: Annotated[dict, Depends(require("ad.read"))],
+) -> list[RdpSessionOut]:
+    rows = await run_in_threadpool(ps.list_rdp_sessions)
+    return [RdpSessionOut(**r) for r in rows]
+
+
+# ------------------------------------------------------------------
+# Fase 9c - Bulk operations + reset de senha em massa
+# ------------------------------------------------------------------
+class BulkResultItem(BaseModel):
+    sam: str
+    ok: bool
+    error: str | None = None
+
+
+class BulkEnableIn(BaseModel):
+    sams: list[str]
+    value: bool = True
+
+
+class BulkGroupIn(BaseModel):
+    sams: list[str]
+    group_dn: str
+    add: bool = True
+
+
+class BulkResetPasswordIn(BaseModel):
+    sams: list[str]
+    new_password: str
+    must_change: bool = True
+
+
+@router.post("/bulk/enable", response_model=list[BulkResultItem])
+async def bulk_enable_route(
+    body: BulkEnableIn,
+    claims: Annotated[dict, Depends(require("ad.write"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[BulkResultItem]:
+    results: list[BulkResultItem] = []
+    for sam in body.sams:
+        try:
+            await run_in_threadpool(ldap.set_enabled, sam, body.value)
+            results.append(BulkResultItem(sam=sam, ok=True))
+        except Exception as e:
+            results.append(BulkResultItem(sam=sam, ok=False, error=str(e)))
+    await audit_service.log(
+        session,
+        "ad.bulk.enable" if body.value else "ad.bulk.disable",
+        target=",".join(body.sams),
+    )
+    return results
+
+
+@router.post("/bulk/group", response_model=list[BulkResultItem])
+async def bulk_group_route(
+    body: BulkGroupIn,
+    claims: Annotated[dict, Depends(require("ad.write"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[BulkResultItem]:
+    results: list[BulkResultItem] = []
+    for sam in body.sams:
+        try:
+            await run_in_threadpool(ldap.set_group, sam, body.group_dn, body.add)
+            results.append(BulkResultItem(sam=sam, ok=True))
+        except Exception as e:
+            results.append(BulkResultItem(sam=sam, ok=False, error=str(e)))
+    await audit_service.log(
+        session,
+        "ad.bulk.group_add" if body.add else "ad.bulk.group_remove",
+        target=f"{','.join(body.sams)} -> {body.group_dn}",
+    )
+    return results
+
+
+@router.post("/bulk/reset-password", response_model=list[BulkResultItem])
+async def bulk_reset_password_route(
+    body: BulkResetPasswordIn,
+    claims: Annotated[dict, Depends(require("ad.reset-password"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[BulkResultItem]:
+    results: list[BulkResultItem] = []
+    for sam in body.sams:
+        try:
+            await run_in_threadpool(ps.reset_password, sam, body.new_password, body.must_change)
+            results.append(BulkResultItem(sam=sam, ok=True))
+        except Exception as e:
+            results.append(BulkResultItem(sam=sam, ok=False, error=str(e)))
+    await audit_service.log(session, "ad.bulk.reset-password", target=",".join(body.sams))
+    return results

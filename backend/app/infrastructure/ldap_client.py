@@ -62,6 +62,7 @@ class LdapClient:
             "lockoutTime",
             "memberOf",
             "distinguishedName",
+            "lastLogonTimestamp",
         ]
 
         logger.info("Buscando usuarios AD (q=%r, ou=%r, limit=%d)", q, ou, limit)
@@ -89,6 +90,7 @@ class LdapClient:
                             dn.split(",")[0].replace("CN=", "")
                             for dn in (e.memberOf.values or [])
                         ],
+                        "last_logon": self._parse_filetime(e.lastLogonTimestamp.value),
                     }
                 )
         logger.info("Busca retornou %d usuario(s)", len(out))
@@ -227,3 +229,208 @@ class LdapClient:
             c.delete(dn)
             if not c.result.get("result") == 0:
                 raise RuntimeError(f"Falha ao excluir OU: {c.result.get('description')}")
+
+
+    # ------------------------------------------------------------------
+    # Fase 9c - Gestao de Grupos
+    # ------------------------------------------------------------------
+    _GROUP_SCOPE_BITS = {"Global": 0x2, "DomainLocal": 0x4, "Universal": 0x8}
+    _GROUP_SECURITY_BIT = 0x80000000
+
+    def _group_type_value(self, scope: str, group_type: str) -> int:
+        if scope not in self._GROUP_SCOPE_BITS:
+            raise ValueError(f"scope invalido: {scope!r} (use Global, DomainLocal ou Universal)")
+        if group_type not in ("Security", "Distribution"):
+            raise ValueError(f"group_type invalido: {group_type!r} (use Security ou Distribution)")
+        value = self._GROUP_SCOPE_BITS[scope]
+        if group_type == "Security":
+            value |= self._GROUP_SECURITY_BIT
+            value -= 2**32  # AD guarda groupType como inteiro assinado de 32 bits
+        return value
+
+    def _parse_group_type(self, raw: int) -> tuple[str, str]:
+        value = raw if raw >= 0 else raw + 2**32
+        group_type = "Security" if (value & self._GROUP_SECURITY_BIT) else "Distribution"
+        scope_bits = value & 0x0F
+        scope = next((s for s, b in self._GROUP_SCOPE_BITS.items() if b == scope_bits), "Global")
+        return scope, group_type
+
+    def list_groups(self, base_dn: str | None = None) -> list[dict]:
+        base = base_dn or settings.ad_root_ou
+        with self._conn() as c:
+            c.search(base, "(objectClass=group)", SUBTREE,
+                      attributes=["cn", "distinguishedName", "description", "groupType", "member"])
+            out = []
+            for e in c.entries:
+                scope, group_type = self._parse_group_type(int(e.groupType.value))
+                out.append({
+                    "name": str(e.cn),
+                    "dn": str(e.distinguishedName),
+                    "description": str(e.description) if e.description.value else "",
+                    "scope": scope,
+                    "group_type": group_type,
+                    "member_count": len(e.member.values or []),
+                })
+            return out
+
+    def create_group(
+        self, name: str, parent_dn: str | None = None,
+        scope: str = "Global", group_type: str = "Security", description: str = "",
+    ) -> str:
+        parent = parent_dn or settings.ad_root_ou
+        dn = f"CN={name},{parent}"
+        gtype_value = self._group_type_value(scope, group_type)
+        attrs = {
+            "sAMAccountName": name,
+            "groupType": gtype_value,
+        }
+        if description:
+            attrs["description"] = description
+        with self._conn() as c:
+            c.add(dn, ["top", "group"], attrs)
+            if not c.result.get("result") == 0:
+                raise RuntimeError(f"Falha ao criar grupo '{name}': {c.result.get('description')}")
+        return dn
+
+    def rename_group(self, dn: str, new_name: str) -> str:
+        new_rdn = f"CN={new_name}"
+        with self._conn() as c:
+            c.modify_dn(dn, new_rdn)
+            if not c.result.get("result") == 0:
+                raise RuntimeError(f"Falha ao renomear grupo: {c.result.get('description')}")
+            c.modify(f"{new_rdn},{dn.split(',', 1)[1]}", {"sAMAccountName": [(MODIFY_REPLACE, [new_name])]})
+        parent = dn.split(",", 1)[1]
+        return f"{new_rdn},{parent}"
+
+    def update_group(
+        self, dn: str, description: str | None = None,
+        scope: str | None = None, group_type: str | None = None,
+    ) -> None:
+        with self._conn() as c:
+            changes = {}
+            if description is not None:
+                changes["description"] = [(MODIFY_REPLACE, [description])]
+            if scope is not None or group_type is not None:
+                c.search(dn, "(objectClass=group)", attributes=["groupType"])
+                if not c.entries:
+                    raise LookupError(f"Grupo '{dn}' nao encontrado")
+                cur_scope, cur_type = self._parse_group_type(int(c.entries[0].groupType.value))
+                new_value = self._group_type_value(scope or cur_scope, group_type or cur_type)
+                changes["groupType"] = [(MODIFY_REPLACE, [new_value])]
+            if changes:
+                c.modify(dn, changes)
+                if not c.result.get("result") == 0:
+                    raise RuntimeError(f"Falha ao atualizar grupo: {c.result.get('description')}")
+
+    def delete_group(self, dn: str) -> None:
+        with self._conn() as c:
+            c.delete(dn)
+            if not c.result.get("result") == 0:
+                raise RuntimeError(f"Falha ao excluir grupo: {c.result.get('description')}")
+
+
+    # ------------------------------------------------------------------
+    # Fase 9c - Gestao de Computadores
+    # ------------------------------------------------------------------
+    def list_computers(self, base_dn: str | None = None) -> list[dict]:
+        base = base_dn or settings.ad_root_ou
+        with self._conn() as c:
+            c.search(base, "(objectClass=computer)", SUBTREE,
+                      attributes=["cn", "distinguishedName", "operatingSystem", "userAccountControl"])
+            out = []
+            for e in c.entries:
+                uac = int(e.userAccountControl.value or 0)
+                out.append({
+                    "name": str(e.cn),
+                    "dn": str(e.distinguishedName),
+                    "os": str(e.operatingSystem) if e.operatingSystem.value else "",
+                    "disabled": bool(uac & UAC_ACCOUNTDISABLE),
+                })
+            return out
+
+    def set_computer_enabled(self, dn: str, enabled: bool) -> None:
+        with self._conn() as c:
+            c.search(dn, "(objectClass=computer)", attributes=["userAccountControl"])
+            if not c.entries:
+                raise LookupError(f"Computador '{dn}' nao encontrado")
+            uac = int(c.entries[0].userAccountControl.value)
+            uac = (uac & ~UAC_ACCOUNTDISABLE) if enabled else (uac | UAC_ACCOUNTDISABLE)
+            c.modify(dn, {"userAccountControl": [(MODIFY_REPLACE, [uac])]})
+            if not c.result.get("result") == 0:
+                raise RuntimeError(f"Falha ao alterar status do computador: {c.result.get('description')}")
+
+    def move_computer(self, dn: str, new_parent_dn: str) -> str:
+        rdn = dn.split(",", 1)[0]
+        with self._conn() as c:
+            c.modify_dn(dn, rdn, new_superior=new_parent_dn)
+            if not c.result.get("result") == 0:
+                raise RuntimeError(f"Falha ao mover computador: {c.result.get('description')}")
+        return f"{rdn},{new_parent_dn}"
+
+    def delete_computer(self, dn: str) -> None:
+        with self._conn() as c:
+            c.delete(dn)
+            if not c.result.get("result") == 0:
+                raise RuntimeError(f"Falha ao excluir computador: {c.result.get('description')}")
+
+
+    # ------------------------------------------------------------------
+    # Fase 9c - Membros de grupo (diretos vs herdados via grupos aninhados)
+    # ------------------------------------------------------------------
+    def list_group_members(self, group_dn: str) -> list[dict]:
+        """Lista membros do grupo, expandindo grupos aninhados recursivamente.
+        Cada membro traz 'direct' (bool) e 'via' (lista de nomes de grupos
+        intermediarios, vazia se for membro direto)."""
+        with self._conn() as c:
+            visited: set[str] = set()
+            result: list[dict] = []
+
+            def walk(gdn: str, via: list[str]) -> None:
+                if gdn in visited:
+                    return
+                visited.add(gdn)
+                c.search(gdn, "(objectClass=group)", attributes=["member"])
+                if not c.entries:
+                    return
+                members = c.entries[0].member.values or []
+                for m in members:
+                    c.search(m, "(objectClass=*)", attributes=["objectClass", "cn", "sAMAccountName"])
+                    if not c.entries:
+                        continue
+                    e = c.entries[0]
+                    classes = [str(x) for x in (e.objectClass.values or [])]
+                    if "group" in classes:
+                        walk(m, via + [str(e.cn)])
+                    else:
+                        result.append({
+                            "dn": m,
+                            "name": str(e.cn),
+                            "sam": str(e.sAMAccountName) if e.sAMAccountName.value else None,
+                            "direct": len(via) == 0,
+                            "via": via,
+                        })
+
+            walk(group_dn, [])
+            return result
+
+    # ------------------------------------------------------------------
+    # Fase 9c - Ultimos logons (parsing de FILETIME)
+    # ------------------------------------------------------------------
+    def _parse_filetime(self, value) -> str | None:
+        """Converte lastLogonTimestamp (FILETIME de 100ns desde 1601) para ISO 8601."""
+        if value is None:
+            return None
+        if hasattr(value, "isoformat"):
+            return value.isoformat()
+        try:
+            raw = int(value)
+        except (TypeError, ValueError):
+            return None
+        if raw <= 0:
+            return None
+        from datetime import datetime, timezone
+        unix_ts = (raw - 116444736000000000) / 10000000
+        try:
+            return datetime.fromtimestamp(unix_ts, tz=timezone.utc).isoformat()
+        except (OverflowError, OSError, ValueError):
+            return None

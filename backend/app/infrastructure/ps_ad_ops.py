@@ -121,3 +121,63 @@ class PsAdOps:
                 raise RuntimeError("; ".join(str(e) for e in streams.error))
 
         logger.info("Conta desbloqueada com sucesso (sam=%s)", sam)
+
+
+    # ------------------------------------------------------------------
+    # Fase 9c - GPOs (leitura)
+    # ------------------------------------------------------------------
+    def list_gpos(self) -> list[dict]:
+        """Lista as GPOs do dominio (requer o modulo GroupPolicy/GPMC instalado na DC)."""
+        script = """
+        Import-Module GroupPolicy -ErrorAction Stop
+        Get-GPO -All | Select-Object DisplayName, Id, @{N='GpoStatus';E={$_.GpoStatus.ToString()}}, CreationTime, ModificationTime | ConvertTo-Json -Compress
+        """
+        with self._client() as c:
+            out, streams, had_error = c.execute_ps(script)
+            if had_error:
+                raise RuntimeError("; ".join(str(e) for e in streams.error))
+        import json
+        text = (out or "").strip()
+        if not text:
+            return []
+        data = json.loads(text)
+        if isinstance(data, dict):
+            data = [data]
+        return [
+            {
+                "name": d.get("DisplayName"),
+                "id": d.get("Id"),
+                "status": d.get("GpoStatus"),
+                "created": d.get("CreationTime"),
+                "modified": d.get("ModificationTime"),
+            }
+            for d in data
+        ]
+
+    # ------------------------------------------------------------------
+    # Fase 9c - Sessoes RDP ativas
+    # ------------------------------------------------------------------
+    def list_rdp_sessions(self) -> list[dict]:
+        """Lista sessoes ativas na DC via 'quser'. Retorna vazio se nao houver sessoes."""
+        script = "quser 2>&1"
+        with self._client() as c:
+            out, streams, had_error = c.execute_ps(script)
+        import re
+        lines = [ln for ln in (out or "").splitlines() if ln.strip()]
+        if not lines:
+            return []
+        first_lower = lines[0].lower()
+        if "no user" in first_lower or "nao existe" in first_lower or "não existe" in first_lower:
+            return []
+        sessions = []
+        for line in lines[1:]:
+            parts = re.split(r"\s{2,}", line.strip())
+            if len(parts) >= 4:
+                sessions.append({
+                    "username": parts[0].lstrip(">").strip(),
+                    "session_name": parts[1] if len(parts) >= 6 else "",
+                    "state": parts[-3] if len(parts) >= 5 else (parts[-2] if len(parts) >= 4 else ""),
+                    "idle_time": parts[-2] if len(parts) >= 5 else "",
+                    "logon_time": parts[-1],
+                })
+        return sessions
