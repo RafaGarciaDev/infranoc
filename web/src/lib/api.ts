@@ -663,3 +663,47 @@ export async function deleteGroup(dn: string): Promise<void> {
   });
   if (!res.ok) throw new Error(`Falha ao excluir grupo (HTTP ${res.status}).`);
 }
+
+
+/* Gestao de Computadores (Active Directory) - Fase 9c */
+export type ADComputer = {
+  name: string;
+  dn: string;
+  os: string;
+  disabled: boolean;
+};
+
+export async function listComputers(baseDn?: string): Promise<ADComputer[]> {
+  const qs = baseDn ? `?base_dn=${encodeURIComponent(baseDn)}` : "";
+  const res = await apiFetch(`/directory/computers${qs}`);
+  if (!res.ok) throw new Error(`Falha ao listar computadores (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function setComputerEnabled(dn: string, value: boolean): Promise<void> {
+  const res = await apiFetch(`/directory/computers/enable`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dn, value }),
+  });
+  if (!res.ok) throw new Error(`Falha ao alterar status (HTTP ${res.status}).`);
+}
+
+export async function moveComputer(dn: string, newParentDn: string): Promise<{ dn: string }> {
+  const res = await apiFetch(`/directory/computers/move`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dn, new_parent_dn: newParentDn }),
+  });
+  if (!res.ok) throw new Error(`Falha ao mover computador (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function deleteComputer(dn: string): Promise<void> {
+  const res = await apiFetch(`/directory/computers/delete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dn }),
+  });
+  if (!res.ok) throw new Error(`Falha ao excluir computador (HTTP ${res.status}).`);
+}

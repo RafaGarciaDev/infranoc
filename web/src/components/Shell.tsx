@@ -24,6 +24,7 @@ const NAV: { section: string; items: NavEntry[] }[] = [
       { href: "/usuarios", label: "Usuarios (AD)", requires: "ad.read" },
       { href: "/ad-ous", label: "Estrutura de OUs", requires: "ad.read" },
       { href: "/ad-grupos", label: "Grupos (AD)", requires: "ad.read" },
+      { href: "/ad-computadores", label: "Computadores (AD)", requires: "ad.read" },
       { href: "/observabilidade", label: "Observabilidade", requires: "obs.read" },
       { href: "/ia", label: "Assistente IA", requires: "ai.chat" },
       { href: "/wiki", label: "Base de Conhecimento", requires: "wiki.read" },

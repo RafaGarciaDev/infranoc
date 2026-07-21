@@ -325,3 +325,48 @@ class LdapClient:
             c.delete(dn)
             if not c.result.get("result") == 0:
                 raise RuntimeError(f"Falha ao excluir grupo: {c.result.get('description')}")
+
+
+    # ------------------------------------------------------------------
+    # Fase 9c - Gestao de Computadores
+    # ------------------------------------------------------------------
+    def list_computers(self, base_dn: str | None = None) -> list[dict]:
+        base = base_dn or settings.ad_root_ou
+        with self._conn() as c:
+            c.search(base, "(objectClass=computer)", SUBTREE,
+                      attributes=["cn", "distinguishedName", "operatingSystem", "userAccountControl"])
+            out = []
+            for e in c.entries:
+                uac = int(e.userAccountControl.value or 0)
+                out.append({
+                    "name": str(e.cn),
+                    "dn": str(e.distinguishedName),
+                    "os": str(e.operatingSystem) if e.operatingSystem.value else "",
+                    "disabled": bool(uac & UAC_ACCOUNTDISABLE),
+                })
+            return out
+
+    def set_computer_enabled(self, dn: str, enabled: bool) -> None:
+        with self._conn() as c:
+            c.search(dn, "(objectClass=computer)", attributes=["userAccountControl"])
+            if not c.entries:
+                raise LookupError(f"Computador '{dn}' nao encontrado")
+            uac = int(c.entries[0].userAccountControl.value)
+            uac = (uac & ~UAC_ACCOUNTDISABLE) if enabled else (uac | UAC_ACCOUNTDISABLE)
+            c.modify(dn, {"userAccountControl": [(MODIFY_REPLACE, [uac])]})
+            if not c.result.get("result") == 0:
+                raise RuntimeError(f"Falha ao alterar status do computador: {c.result.get('description')}")
+
+    def move_computer(self, dn: str, new_parent_dn: str) -> str:
+        rdn = dn.split(",", 1)[0]
+        with self._conn() as c:
+            c.modify_dn(dn, rdn, new_superior=new_parent_dn)
+            if not c.result.get("result") == 0:
+                raise RuntimeError(f"Falha ao mover computador: {c.result.get('description')}")
+        return f"{rdn},{new_parent_dn}"
+
+    def delete_computer(self, dn: str) -> None:
+        with self._conn() as c:
+            c.delete(dn)
+            if not c.result.get("result") == 0:
+                raise RuntimeError(f"Falha ao excluir computador: {c.result.get('description')}")

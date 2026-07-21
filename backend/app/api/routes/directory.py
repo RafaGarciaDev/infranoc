@@ -383,3 +383,71 @@ async def delete_group_route(
     await run_in_threadpool(ldap.delete_group, body.dn)
     await audit_service.log(session, "ad.group.delete", target=body.dn)
     return {"ok": True}
+
+
+# ------------------------------------------------------------------
+# Fase 9c - Gestao de Computadores
+# ------------------------------------------------------------------
+class ComputerOut(BaseModel):
+    name: str
+    dn: str
+    os: str
+    disabled: bool
+
+
+class ComputerEnableIn(BaseModel):
+    dn: str
+    value: bool = True
+
+
+class ComputerMoveIn(BaseModel):
+    dn: str
+    new_parent_dn: str
+
+
+class ComputerDeleteIn(BaseModel):
+    dn: str
+
+
+@router.get("/computers", response_model=list[ComputerOut])
+async def list_computers_route(
+    claims: Annotated[dict, Depends(require("ad.read"))],
+    base_dn: str | None = None,
+) -> list[ComputerOut]:
+    rows = await run_in_threadpool(ldap.list_computers, base_dn)
+    return [ComputerOut(**r) for r in rows]
+
+
+@router.post("/computers/enable")
+async def set_computer_enabled_route(
+    body: ComputerEnableIn,
+    claims: Annotated[dict, Depends(require("ad.write"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict:
+    await run_in_threadpool(ldap.set_computer_enabled, body.dn, body.value)
+    await audit_service.log(
+        session, "ad.computer.enable" if body.value else "ad.computer.disable", target=body.dn
+    )
+    return {"ok": True}
+
+
+@router.post("/computers/move")
+async def move_computer_route(
+    body: ComputerMoveIn,
+    claims: Annotated[dict, Depends(require("ad.write"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict:
+    new_dn = await run_in_threadpool(ldap.move_computer, body.dn, body.new_parent_dn)
+    await audit_service.log(session, "ad.computer.move", target=f"{body.dn}->{new_dn}")
+    return {"dn": new_dn}
+
+
+@router.post("/computers/delete")
+async def delete_computer_route(
+    body: ComputerDeleteIn,
+    claims: Annotated[dict, Depends(require("ad.write"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict:
+    await run_in_threadpool(ldap.delete_computer, body.dn)
+    await audit_service.log(session, "ad.computer.delete", target=body.dn)
+    return {"ok": True}
