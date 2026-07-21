@@ -434,3 +434,24 @@ class LdapClient:
             return datetime.fromtimestamp(unix_ts, tz=timezone.utc).isoformat()
         except (OverflowError, OSError, ValueError):
             return None
+
+
+    # ------------------------------------------------------------------
+    # Fase 9c - Foto do usuario (thumbnailPhoto)
+    # ------------------------------------------------------------------
+    def get_user_photo(self, sam: str) -> bytes | None:
+        with self._conn() as c:
+            c.search(self.base, f"(sAMAccountName={sam})", attributes=["thumbnailPhoto"])
+            if not c.entries:
+                raise LookupError(f"Usuario '{sam}' nao encontrado no AD")
+            val = c.entries[0].thumbnailPhoto.value
+            if not val:
+                return None
+            return val if isinstance(val, (bytes, bytearray)) else None
+
+    def set_user_photo(self, sam: str, data: bytes) -> None:
+        with self._conn() as c:
+            dn = self._dn_of(c, sam)
+            c.modify(dn, {"thumbnailPhoto": [(MODIFY_REPLACE, [data])]})
+            if not c.result.get("result") == 0:
+                raise RuntimeError(f"Falha ao definir foto: {c.result.get('description')}")
