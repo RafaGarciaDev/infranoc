@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     # AI (Fase 7)
     ai_base_url: str = "http://localhost:11434"   # env INFRANOC_AI_BASE_URL
     ai_model: str = "qwen2.5:3b"                    # env INFRANOC_AI_MODEL
+    linux_ssh_host: str = "192.168.56.30"
+    linux_ssh_user: str = "labadmin"
+    linux_ssh_password: str = ""          # env INFRANOC_LINUX_SSH_PASSWORD
 
 
     # Peppermint (Fase 6b) - login via email/senha; token expira rapido, sem API key estatica

@@ -841,3 +841,66 @@ export async function downloadRdpFile(assetId: string, filename: string): Promis
   a.click();
   URL.revokeObjectURL(url);
 }
+
+
+/* Linux Ops (Fase 9d) */
+export type LinuxSnapshot = { uptime: string; who: string; last: string };
+export async function getLinuxSnapshot(): Promise<LinuxSnapshot> {
+  const res = await apiFetch(`/linux/snapshot`);
+  if (!res.ok) throw new Error(`Falha ao buscar snapshot (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export type LinuxUser = { username: string; uid: string; home: string; shell: string };
+export async function listLinuxUsers(): Promise<LinuxUser[]> {
+  const res = await apiFetch(`/linux/users`);
+  if (!res.ok) throw new Error(`Falha ao listar usuarios (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export type SystemdUnit = { unit: string; load: string; active: string; sub: string; description: string };
+export async function listSystemdUnits(q?: string): Promise<SystemdUnit[]> {
+  const qs = q ? `?q=${encodeURIComponent(q)}` : "";
+  const res = await apiFetch(`/linux/systemd${qs}`);
+  if (!res.ok) throw new Error(`Falha ao listar servicos (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function systemdAction(unit: string, action: "start" | "stop" | "restart"): Promise<void> {
+  const res = await apiFetch(`/linux/systemd/action`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ unit, action }),
+  });
+  if (!res.ok) {
+    let msg = `Falha na acao (HTTP ${res.status}).`;
+    try { const data = await res.json(); if (data?.detail) msg = data.detail; } catch {}
+    throw new Error(msg);
+  }
+}
+
+export type DiskUsage = { mount: string; size: string; used: string; avail: string; percent: string };
+export async function getLinuxDisk(): Promise<DiskUsage[]> {
+  const res = await apiFetch(`/linux/disk`);
+  if (!res.ok) throw new Error(`Falha ao buscar disco (HTTP ${res.status}).`);
+  return res.json();
+}
+
+/* Toolkit de Diagnostico (Fase 9e) */
+export type PortCheckResult = { reachable: boolean; latency_ms: number | null };
+export async function toolkitPortCheck(host: string, port: number, timeout = 3): Promise<PortCheckResult> {
+  const res = await apiFetch(`/toolkit/port-check`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ host, port, timeout }),
+  });
+  if (!res.ok) throw new Error(`Falha no port-check (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function toolkitSs(): Promise<string> {
+  const res = await apiFetch(`/toolkit/ss`);
+  if (!res.ok) throw new Error(`Falha ao executar ss (HTTP ${res.status}).`);
+  const data = await res.json();
+  return data.output as string;
+}

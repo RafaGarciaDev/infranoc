@@ -31,6 +31,7 @@ const NAV: { section: string; items: NavEntry[] }[] = [
       { href: "/ia", label: "Assistente IA", requires: "ai.chat" },
       { href: "/wiki", label: "Base de Conhecimento", requires: "wiki.read" },
       { href: "/hub-acessos", label: "Hub de Acessos", requires: "cmdb.read" },
+      { href: "/linux-toolkit", label: "Linux Ops + Toolkit", requires: "linux.read" },
     ],
   },
 ];

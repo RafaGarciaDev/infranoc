@@ -44,6 +44,9 @@ PERMISSIONS = [
     ("wiki.write", "Criar/editar paginas da base de conhecimento"),
     ("ad.ou.manage", "Criar/renomear/mover/excluir OUs do Active Directory"),
     ("ad.group.manage", "Criar/editar/excluir grupos do Active Directory"),
+    ("linux.read", "Ler status de servidores Linux (systemd, disco, usuarios)"),
+    ("linux.exec", "Executar acoes em servidores Linux (start/stop/restart de servicos)"),
+    ("toolkit.exec", "Executar ferramentas de diagnostico (port-check, ss, etc.)"),
 ]
 
 
