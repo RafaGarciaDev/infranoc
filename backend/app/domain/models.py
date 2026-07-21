@@ -345,3 +345,50 @@ class KnowledgeDoc(Base):
     content: Mapped[str] = mapped_column(Text)
     embedding = mapped_column(Vector(384))  # multilingual-e5-small = 384 dims
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+# ============================================================
+# Fase 9b - Base de Conhecimento (Wiki interna + RAG expandido)
+# ============================================================
+class WikiPage(Base):
+    __tablename__ = "wiki_pages"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "slug", name="uq_wiki_pages_tenant_slug"),
+        Index("ix_wiki_pages_tenant_category", "tenant_id", "category"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+    slug: Mapped[str] = mapped_column(String(128), index=True)
+    title: Mapped[str] = mapped_column(String(256))
+    category: Mapped[str] = mapped_column(String(32))  # rede | ad | linux | ot | energia | seguranca | geral
+    content_md: Mapped[str] = mapped_column(Text)
+    tags: Mapped[list] = mapped_column(JSONB, default=list)
+    author_email: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+    versions: Mapped[list["WikiPageVersion"]] = relationship(
+        back_populates="page",
+        cascade="all, delete-orphan",
+        order_by="WikiPageVersion.version.desc()",
+    )
+
+
+class WikiPageVersion(Base):
+    __tablename__ = "wiki_page_versions"
+    __table_args__ = (
+        Index("ix_wiki_page_versions_page", "page_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    page_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("wiki_pages.id", ondelete="CASCADE")
+    )
+    version: Mapped[int] = mapped_column(Integer)
+    content_md: Mapped[str] = mapped_column(Text)
+    author_email: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    page: Mapped[WikiPage] = relationship(back_populates="versions")

@@ -40,6 +40,8 @@ PERMISSIONS = [
     ("integrations.read", "Ler configuracoes de integracao"),
     ("integrations.write", "Editar configuracoes de integracao"),
     ("tickets.read", "Ler chamados (ITSM)"),
+    ("wiki.read", "Ler paginas da base de conhecimento"),
+    ("wiki.write", "Criar/editar paginas da base de conhecimento"),
 ]
 
 
