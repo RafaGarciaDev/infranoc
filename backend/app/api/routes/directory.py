@@ -595,3 +595,36 @@ async def bulk_reset_password_route(
             results.append(BulkResultItem(sam=sam, ok=False, error=str(e)))
     await audit_service.log(session, "ad.bulk.reset-password", target=",".join(body.sams))
     return results
+
+
+from fastapi import File, HTTPException, UploadFile
+from fastapi.responses import Response
+
+
+# ------------------------------------------------------------------
+# Fase 9c - Foto do usuario
+# ------------------------------------------------------------------
+@router.get("/users/{sam}/photo")
+async def get_user_photo_route(
+    sam: str,
+    claims: Annotated[dict, Depends(require("ad.read"))],
+):
+    photo = await run_in_threadpool(ldap.get_user_photo, sam)
+    if photo is None:
+        raise HTTPException(404, "Usuario sem foto cadastrada")
+    return Response(content=photo, media_type="image/jpeg")
+
+
+@router.post("/users/{sam}/photo")
+async def upload_user_photo_route(
+    sam: str,
+    claims: Annotated[dict, Depends(require("ad.write"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    file: UploadFile = File(...),
+):
+    data = await file.read()
+    if len(data) > 100 * 1024:
+        raise HTTPException(400, "Foto muito grande (maximo 100KB)")
+    await run_in_threadpool(ldap.set_user_photo, sam, data)
+    await audit_service.log(session, "ad.user.photo_upload", target=sam)
+    return {"ok": True}

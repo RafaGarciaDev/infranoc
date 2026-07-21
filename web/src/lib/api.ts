@@ -792,3 +792,23 @@ export async function bulkResetPassword(sams: string[], newPassword: string, mus
   if (!res.ok) throw new Error(`Falha no reset em massa (HTTP ${res.status}).`);
   return res.json();
 }
+
+
+/* Foto do usuario (Active Directory) - Fase 9c */
+export async function getUserPhotoBlobUrl(sam: string): Promise<string | null> {
+  const res = await apiFetch(`/directory/users/${encodeURIComponent(sam)}/photo`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Falha ao buscar foto (HTTP ${res.status}).`);
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
+export async function uploadUserPhoto(sam: string, file: globalThis.File): Promise<void> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await apiFetch(`/directory/users/${encodeURIComponent(sam)}/photo`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) throw new Error(`Falha ao enviar foto (HTTP ${res.status}).`);
+}

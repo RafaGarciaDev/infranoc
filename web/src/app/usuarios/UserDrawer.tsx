@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ADUser, ADAuditEvent, listAdAudit, unlockUser, setEnabled } from "@/lib/api";
+import { ADUser, ADAuditEvent, listAdAudit, unlockUser, setEnabled, getUserPhotoBlobUrl, uploadUserPhoto } from "@/lib/api";
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString("pt-BR", {
@@ -22,6 +22,43 @@ export default function UserDrawer({ user, onClose, onChanged, onOpenResetPasswo
   const [auditLoading, setAuditLoading] = useState(true);
   const [actionErr, setActionErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoLoading, setPhotoLoading] = useState(true);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  useEffect(() => {
+    let currentUrl: string | null = null;
+    setPhotoLoading(true);
+    setPhotoError(null);
+    getUserPhotoBlobUrl(user.sam)
+      .then((url) => {
+        currentUrl = url;
+        setPhotoUrl(url);
+      })
+      .catch((e) => setPhotoError(e instanceof Error ? e.message : "Erro ao buscar foto."))
+      .finally(() => setPhotoLoading(false));
+    return () => {
+      if (currentUrl) URL.revokeObjectURL(currentUrl);
+    };
+  }, [user.sam]);
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    setPhotoError(null);
+    try {
+      await uploadUserPhoto(user.sam, file);
+      const url = await getUserPhotoBlobUrl(user.sam);
+      setPhotoUrl(url);
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : "Erro ao enviar foto.");
+    } finally {
+      setUploadingPhoto(false);
+      e.target.value = "";
+    }
+  }
 
   useEffect(() => {
     setAuditLoading(true);
@@ -84,6 +121,26 @@ export default function UserDrawer({ user, onClose, onChanged, onOpenResetPasswo
             Erro: {actionErr}
           </div>
         )}
+
+        <div className="drawer-section">
+          <div className="drawer-section-title">Foto</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {photoLoading ? (
+              <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(148,163,184,.15)" }} />
+            ) : photoUrl ? (
+              <img src={photoUrl} alt={user.display_name} style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover" }} />
+            ) : (
+              <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(59,130,246,.15)", color: "#60a5fa", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 600 }}>
+                {user.display_name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase()}
+              </div>
+            )}
+            <label className="btn" style={{ cursor: "pointer" }}>
+              {uploadingPhoto ? "Enviando..." : "Alterar foto"}
+              <input type="file" accept="image/*" onChange={handlePhotoUpload} disabled={uploadingPhoto} style={{ display: "none" }} />
+            </label>
+          </div>
+          {photoError && <div style={{ color: "var(--sev-critical)", fontSize: 12, marginTop: 6 }}>{photoError}</div>}
+        </div>
 
         <div className="drawer-section">
           <div className="drawer-section-title">Identificacao</div>
