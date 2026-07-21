@@ -62,6 +62,7 @@ class LdapClient:
             "lockoutTime",
             "memberOf",
             "distinguishedName",
+            "lastLogonTimestamp",
         ]
 
         logger.info("Buscando usuarios AD (q=%r, ou=%r, limit=%d)", q, ou, limit)
@@ -89,6 +90,7 @@ class LdapClient:
                             dn.split(",")[0].replace("CN=", "")
                             for dn in (e.memberOf.values or [])
                         ],
+                        "last_logon": self._parse_filetime(e.lastLogonTimestamp.value),
                     }
                 )
         logger.info("Busca retornou %d usuario(s)", len(out))
@@ -370,3 +372,65 @@ class LdapClient:
             c.delete(dn)
             if not c.result.get("result") == 0:
                 raise RuntimeError(f"Falha ao excluir computador: {c.result.get('description')}")
+
+
+    # ------------------------------------------------------------------
+    # Fase 9c - Membros de grupo (diretos vs herdados via grupos aninhados)
+    # ------------------------------------------------------------------
+    def list_group_members(self, group_dn: str) -> list[dict]:
+        """Lista membros do grupo, expandindo grupos aninhados recursivamente.
+        Cada membro traz 'direct' (bool) e 'via' (lista de nomes de grupos
+        intermediarios, vazia se for membro direto)."""
+        with self._conn() as c:
+            visited: set[str] = set()
+            result: list[dict] = []
+
+            def walk(gdn: str, via: list[str]) -> None:
+                if gdn in visited:
+                    return
+                visited.add(gdn)
+                c.search(gdn, "(objectClass=group)", attributes=["member"])
+                if not c.entries:
+                    return
+                members = c.entries[0].member.values or []
+                for m in members:
+                    c.search(m, "(objectClass=*)", attributes=["objectClass", "cn", "sAMAccountName"])
+                    if not c.entries:
+                        continue
+                    e = c.entries[0]
+                    classes = [str(x) for x in (e.objectClass.values or [])]
+                    if "group" in classes:
+                        walk(m, via + [str(e.cn)])
+                    else:
+                        result.append({
+                            "dn": m,
+                            "name": str(e.cn),
+                            "sam": str(e.sAMAccountName) if e.sAMAccountName.value else None,
+                            "direct": len(via) == 0,
+                            "via": via,
+                        })
+
+            walk(group_dn, [])
+            return result
+
+    # ------------------------------------------------------------------
+    # Fase 9c - Ultimos logons (parsing de FILETIME)
+    # ------------------------------------------------------------------
+    def _parse_filetime(self, value) -> str | None:
+        """Converte lastLogonTimestamp (FILETIME de 100ns desde 1601) para ISO 8601."""
+        if value is None:
+            return None
+        if hasattr(value, "isoformat"):
+            return value.isoformat()
+        try:
+            raw = int(value)
+        except (TypeError, ValueError):
+            return None
+        if raw <= 0:
+            return None
+        from datetime import datetime, timezone
+        unix_ts = (raw - 116444736000000000) / 10000000
+        try:
+            return datetime.fromtimestamp(unix_ts, tz=timezone.utc).isoformat()
+        except (OverflowError, OSError, ValueError):
+            return None

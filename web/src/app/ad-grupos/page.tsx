@@ -2,13 +2,16 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Shell from "@/components/Shell";
-import { listGroups, createGroup, renameGroup, updateGroup, deleteGroup, ADGroup, ADGroupScope, ADGroupType } from "@/lib/api";
+import { listGroups, createGroup, renameGroup, updateGroup, deleteGroup, getGroupMembers, ADGroup, ADGroupScope, ADGroupType, GroupMember } from "@/lib/api";
 
 export default function GroupsPage() {
   const [groups, setGroups] = useState<ADGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [membersOpenDn, setMembersOpenDn] = useState<string | null>(null);
+  const [members, setMembers] = useState<GroupMember[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -76,6 +79,23 @@ export default function GroupsPage() {
     }
   }
 
+  async function handleToggleMembers(dn: string) {
+    if (membersOpenDn === dn) {
+      setMembersOpenDn(null);
+      return;
+    }
+    setMembersOpenDn(dn);
+    setMembersLoading(true);
+    try {
+      const data = await getGroupMembers(dn);
+      setMembers(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao buscar membros.");
+    } finally {
+      setMembersLoading(false);
+    }
+  }
+
   async function handleDelete(dn: string, name: string) {
     if (!confirm(`Excluir o grupo "${name}"?`)) return;
     setBusy(dn);
@@ -119,7 +139,8 @@ export default function GroupsPage() {
           </thead>
           <tbody>
             {groups.map((g) => (
-              <tr key={g.dn}>
+              <React.Fragment key={g.dn}>
+              <tr>
                 <td className="alert-name">{g.name}</td>
                 <td><span className="badge badge-cat">{g.scope}</span></td>
                 <td><span className="badge badge-cat">{g.group_type}</span></td>
@@ -133,12 +154,46 @@ export default function GroupsPage() {
                     <button className="logout-btn" disabled={busy === g.dn} onClick={() => handleEditDescription(g.dn, g.description)}>
                       Descricao
                     </button>
+                    <button className="logout-btn" onClick={() => handleToggleMembers(g.dn)}>
+                      {membersOpenDn === g.dn ? "Ocultar membros" : "Ver membros"}
+                    </button>
                     <button className="logout-btn" disabled={busy === g.dn} onClick={() => handleDelete(g.dn, g.name)}>
                       Excluir
                     </button>
                   </div>
                 </td>
               </tr>
+              {membersOpenDn === g.dn && (
+                <tr>
+                  <td colSpan={6} style={{ background: "var(--panel)", padding: 12 }}>
+                    {membersLoading ? (
+                      <span>carregando membros...</span>
+                    ) : members.length === 0 ? (
+                      <span style={{ color: "var(--fg-2)" }}>Nenhum membro.</span>
+                    ) : (
+                      <table style={{ width: "100%" }}>
+                        <thead>
+                          <tr>
+                            <th style={{ textAlign: "left" }}>Nome</th>
+                            <th style={{ textAlign: "left" }}>SAM</th>
+                            <th style={{ textAlign: "left" }}>Origem</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {members.map((m) => (
+                            <tr key={m.dn}>
+                              <td>{m.name}</td>
+                              <td>{m.sam ?? "-"}</td>
+                              <td>{m.direct ? "Direto" : `Herdado via ${m.via.join(" -> ")}`}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </td>
+                </tr>
+              )}
+              </React.Fragment>
             ))}
           </tbody>
         </table>

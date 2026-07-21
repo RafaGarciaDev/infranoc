@@ -51,6 +51,7 @@ class ADUserOut(BaseModel):
     locked: bool
     dn: str
     groups: list[str]
+    last_logon: str | None = None
 
 
 class ADSummaryOut(BaseModel):
@@ -451,3 +452,23 @@ async def delete_computer_route(
     await run_in_threadpool(ldap.delete_computer, body.dn)
     await audit_service.log(session, "ad.computer.delete", target=body.dn)
     return {"ok": True}
+
+
+# ------------------------------------------------------------------
+# Fase 9c - Membros de grupo (diretos vs herdados)
+# ------------------------------------------------------------------
+class GroupMemberOut(BaseModel):
+    dn: str
+    name: str
+    sam: str | None
+    direct: bool
+    via: list[str]
+
+
+@router.get("/groups/members", response_model=list[GroupMemberOut])
+async def list_group_members_route(
+    claims: Annotated[dict, Depends(require("ad.read"))],
+    group_dn: str,
+) -> list[GroupMemberOut]:
+    rows = await run_in_threadpool(ldap.list_group_members, group_dn)
+    return [GroupMemberOut(**r) for r in rows]

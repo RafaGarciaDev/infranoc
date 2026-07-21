@@ -253,6 +253,7 @@ export type ADUser = {
   locked: boolean;
   dn: string;
   groups: string[];
+  last_logon: string | null;
 };
 
 export type ADSummary = {
@@ -706,4 +707,20 @@ export async function deleteComputer(dn: string): Promise<void> {
     body: JSON.stringify({ dn }),
   });
   if (!res.ok) throw new Error(`Falha ao excluir computador (HTTP ${res.status}).`);
+}
+
+
+/* Membros de grupo (diretos vs herdados) - Fase 9c */
+export type GroupMember = {
+  dn: string;
+  name: string;
+  sam: string | null;
+  direct: boolean;
+  via: string[];
+};
+
+export async function getGroupMembers(groupDn: string): Promise<GroupMember[]> {
+  const res = await apiFetch(`/directory/groups/members?group_dn=${encodeURIComponent(groupDn)}`);
+  if (!res.ok) throw new Error(`Falha ao buscar membros (HTTP ${res.status}).`);
+  return res.json();
 }
