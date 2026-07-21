@@ -105,6 +105,7 @@ class TestSearchUsersParsing:
             lockoutTime="132500000000000000" if locked else "0",
             memberOf=None,
             distinguishedName="CN=Joao Silva,OU=TI,OU=Usuarios,OU=VALEVERDE,DC=infranoc,DC=lab",
+            lastLogonTimestamp=None,
         )
 
     def test_conta_habilitada_nao_marca_disabled(self, client):
