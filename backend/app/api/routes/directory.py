@@ -14,7 +14,8 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -595,10 +596,6 @@ async def bulk_reset_password_route(
             results.append(BulkResultItem(sam=sam, ok=False, error=str(e)))
     await audit_service.log(session, "ad.bulk.reset-password", target=",".join(body.sams))
     return results
-
-
-from fastapi import File, HTTPException, UploadFile
-from fastapi.responses import Response
 
 
 # ------------------------------------------------------------------
