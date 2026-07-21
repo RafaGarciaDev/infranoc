@@ -47,6 +47,7 @@ PERMISSIONS = [
     ("linux.read", "Ler status de servidores Linux (systemd, disco, usuarios)"),
     ("linux.exec", "Executar acoes em servidores Linux (start/stop/restart de servicos)"),
     ("toolkit.exec", "Executar ferramentas de diagnostico (port-check, ss, etc.)"),
+    ("backup.read", "Ver painel de backup (jobs, restore points, KPIs)"),
 ]
 
 
