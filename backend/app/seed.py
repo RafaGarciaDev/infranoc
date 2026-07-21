@@ -42,6 +42,7 @@ PERMISSIONS = [
     ("tickets.read", "Ler chamados (ITSM)"),
     ("wiki.read", "Ler paginas da base de conhecimento"),
     ("wiki.write", "Criar/editar paginas da base de conhecimento"),
+    ("ad.ou.manage", "Criar/renomear/mover/excluir OUs do Active Directory"),
 ]
 
 

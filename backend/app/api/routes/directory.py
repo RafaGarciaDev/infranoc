@@ -199,3 +199,88 @@ async def list_audit(
 
     rows = (await session.execute(stmt)).scalars().all()
     return [ADAuditEventOut.model_validate(r) for r in rows]
+
+
+# ------------------------------------------------------------------
+# Fase 9c - Gestao de OUs (Organizational Units)
+# ------------------------------------------------------------------
+class OUOut(BaseModel):
+    name: str
+    dn: str
+    parent_dn: str
+
+
+class OUCreateIn(BaseModel):
+    name: str
+    parent_dn: str | None = None
+
+
+class OURenameIn(BaseModel):
+    dn: str
+    new_name: str
+
+
+class OUMoveIn(BaseModel):
+    dn: str
+    new_parent_dn: str
+
+
+class OUDeleteIn(BaseModel):
+    dn: str
+
+
+@router.get("/ous", response_model=list[OUOut])
+async def list_ous_route(
+    claims: Annotated[dict, Depends(require("ad.read"))],
+    base_dn: str | None = None,
+) -> list[OUOut]:
+    rows = await run_in_threadpool(ldap.list_ous, base_dn)
+    return [OUOut(**r) for r in rows]
+
+
+@router.post("/ous")
+async def create_ou_route(
+    body: OUCreateIn,
+    claims: Annotated[dict, Depends(require("ad.ou.manage"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict:
+    dn = await run_in_threadpool(ldap.create_ou, body.name, body.parent_dn)
+    await audit_service.log(session, "ad.ou.create", target=dn)
+    return {"dn": dn}
+
+
+@router.post("/ous/rename")
+async def rename_ou_route(
+    body: OURenameIn,
+    claims: Annotated[dict, Depends(require("ad.ou.manage"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict:
+    new_dn = await run_in_threadpool(ldap.rename_ou, body.dn, body.new_name)
+    await audit_service.log(session, "ad.ou.rename", target=f"{body.dn}->{new_dn}")
+    return {"dn": new_dn}
+
+
+@router.post("/ous/move")
+async def move_ou_route(
+    body: OUMoveIn,
+    claims: Annotated[dict, Depends(require("ad.ou.manage"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict:
+    new_dn = await run_in_threadpool(ldap.move_ou, body.dn, body.new_parent_dn)
+    await audit_service.log(session, "ad.ou.move", target=f"{body.dn}->{new_dn}")
+    return {"dn": new_dn}
+
+
+@router.post("/ous/delete")
+async def delete_ou_route(
+    body: OUDeleteIn,
+    claims: Annotated[dict, Depends(require("ad.ou.manage"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict:
+    try:
+        await run_in_threadpool(ldap.delete_ou, body.dn)
+    except ValueError as e:
+        from fastapi import HTTPException
+        raise HTTPException(400, str(e))
+    await audit_service.log(session, "ad.ou.delete", target=body.dn)
+    return {"ok": True}

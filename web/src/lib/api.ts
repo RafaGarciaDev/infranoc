@@ -531,3 +531,64 @@ export async function deleteWikiPage(slug: string): Promise<void> {
   const res = await apiFetch(`/wiki/${encodeURIComponent(slug)}`, { method: "DELETE" });
   if (!res.ok) throw new Error(`Falha ao excluir pagina (HTTP ${res.status}).`);
 }
+
+
+/* Gestao de OUs (Active Directory) - Fase 9c */
+export type OU = {
+  name: string;
+  dn: string;
+  parent_dn: string;
+};
+
+export async function listOUs(baseDn?: string): Promise<OU[]> {
+  const qs = baseDn ? `?base_dn=${encodeURIComponent(baseDn)}` : "";
+  const res = await apiFetch(`/directory/ous${qs}`);
+  if (!res.ok) throw new Error(`Falha ao listar OUs (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function createOU(name: string, parentDn?: string): Promise<{ dn: string }> {
+  const res = await apiFetch(`/directory/ous`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, parent_dn: parentDn }),
+  });
+  if (!res.ok) throw new Error(`Falha ao criar OU (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function renameOU(dn: string, newName: string): Promise<{ dn: string }> {
+  const res = await apiFetch(`/directory/ous/rename`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dn, new_name: newName }),
+  });
+  if (!res.ok) throw new Error(`Falha ao renomear OU (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function moveOU(dn: string, newParentDn: string): Promise<{ dn: string }> {
+  const res = await apiFetch(`/directory/ous/move`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dn, new_parent_dn: newParentDn }),
+  });
+  if (!res.ok) throw new Error(`Falha ao mover OU (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function deleteOU(dn: string): Promise<void> {
+  const res = await apiFetch(`/directory/ous/delete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dn }),
+  });
+  if (!res.ok) {
+    let msg = `Falha ao excluir OU (HTTP ${res.status}).`;
+    try {
+      const data = await res.json();
+      if (data?.detail) msg = data.detail;
+    } catch {}
+    throw new Error(msg);
+  }
+}

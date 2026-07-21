@@ -165,3 +165,65 @@ class LdapClient:
                 logger.error("Falha ao criar usuario %s: %s", sam, c.result)
                 raise RuntimeError(f"Falha ao criar usuario '{sam}': {c.result.get('description')}")
         return dn
+
+
+    # ------------------------------------------------------------------
+    # Fase 9c - Gestao de OUs (Organizational Units)
+    # ------------------------------------------------------------------
+    def list_ous(self, base_dn: str | None = None) -> list[dict]:
+        """Lista as OUs a partir de base_dn (ou de settings.ad_root_ou, se nao informado)."""
+        base = base_dn or settings.ad_root_ou
+        with self._conn() as c:
+            c.search(base, "(objectClass=organizationalUnit)", SUBTREE,
+                      attributes=["ou", "distinguishedName"])
+            out = []
+            for e in c.entries:
+                dn = str(e.distinguishedName)
+                parent_dn = dn.split(",", 1)[1] if "," in dn else ""
+                out.append({"name": str(e.ou), "dn": dn, "parent_dn": parent_dn})
+            return out
+
+    def create_ou(self, name: str, parent_dn: str | None = None) -> str:
+        """Cria uma OU nova sob parent_dn (ou sob settings.ad_root_ou, se nao informado)."""
+        parent = parent_dn or settings.ad_root_ou
+        dn = f"OU={name},{parent}"
+        with self._conn() as c:
+            c.add(dn, ["top", "organizationalUnit"], {"ou": name})
+            if not c.result.get("result") == 0:
+                raise RuntimeError(f"Falha ao criar OU '{name}': {c.result.get('description')}")
+        return dn
+
+    def rename_ou(self, dn: str, new_name: str) -> str:
+        """Renomeia a OU (troca o RDN, mantendo o mesmo pai)."""
+        new_rdn = f"OU={new_name}"
+        with self._conn() as c:
+            c.modify_dn(dn, new_rdn)
+            if not c.result.get("result") == 0:
+                raise RuntimeError(f"Falha ao renomear OU: {c.result.get('description')}")
+        parent = dn.split(",", 1)[1]
+        return f"{new_rdn},{parent}"
+
+    def move_ou(self, dn: str, new_parent_dn: str) -> str:
+        """Move a OU para debaixo de um novo pai (mantendo o mesmo nome)."""
+        rdn = dn.split(",", 1)[0]
+        with self._conn() as c:
+            c.modify_dn(dn, rdn, new_superior=new_parent_dn)
+            if not c.result.get("result") == 0:
+                raise RuntimeError(f"Falha ao mover OU: {c.result.get('description')}")
+        return f"{rdn},{new_parent_dn}"
+
+    def _ou_has_children(self, c: Connection, dn: str) -> bool:
+        c.search(dn, "(objectClass=*)", SUBTREE, attributes=["distinguishedName"], size_limit=2)
+        # a propria OU aparece como 1 resultado; mais que isso indica filhos
+        return len(c.entries) > 1
+
+    def delete_ou(self, dn: str) -> None:
+        """Exclui a OU, com validacao de que ela esta vazia antes."""
+        with self._conn() as c:
+            if self._ou_has_children(c, dn):
+                raise ValueError(
+                    "OU nao esta vazia; mova ou remova os objetos filhos antes de excluir."
+                )
+            c.delete(dn)
+            if not c.result.get("result") == 0:
+                raise RuntimeError(f"Falha ao excluir OU: {c.result.get('description')}")
