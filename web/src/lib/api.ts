@@ -445,3 +445,89 @@ export async function askAiStream(
     onChunk(decoder.decode(value, { stream: true }));
   }
 }
+
+
+/* Wiki (Base de Conhecimento - Fase 9b) */
+export type WikiCategory = "rede" | "ad" | "linux" | "ot" | "energia" | "seguranca" | "geral";
+
+export type WikiPageListItem = {
+  slug: string;
+  title: string;
+  category: WikiCategory;
+  tags: string[];
+  version: number;
+  updated_at: string;
+};
+
+export type WikiPageDetail = WikiPageListItem & {
+  content_md: string;
+  author_email: string | null;
+};
+
+export type WikiPageVersionOut = {
+  version: number;
+  author_email: string | null;
+  created_at: string;
+};
+
+export type WikiPageCreateInput = {
+  slug: string;
+  title: string;
+  category: WikiCategory;
+  content_md: string;
+  tags?: string[];
+};
+
+export type WikiPageUpdateInput = {
+  title?: string;
+  category?: WikiCategory;
+  content_md?: string;
+  tags?: string[];
+};
+
+export async function listWikiPages(filter?: { category?: string; tag?: string }): Promise<WikiPageListItem[]> {
+  const qs = new URLSearchParams();
+  if (filter?.category) qs.set("category", filter.category);
+  if (filter?.tag) qs.set("tag", filter.tag);
+  const q = qs.toString();
+  const res = await apiFetch(`/wiki${q ? `?${q}` : ""}`);
+  if (!res.ok) throw new Error(`Falha ao listar paginas da wiki (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function getWikiPage(slug: string): Promise<WikiPageDetail> {
+  const res = await apiFetch(`/wiki/${encodeURIComponent(slug)}`);
+  if (!res.ok) throw new Error(`Falha ao buscar pagina (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function getWikiHistory(slug: string): Promise<WikiPageVersionOut[]> {
+  const res = await apiFetch(`/wiki/${encodeURIComponent(slug)}/history`);
+  if (!res.ok) throw new Error(`Falha ao buscar historico (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function createWikiPage(body: WikiPageCreateInput): Promise<WikiPageDetail> {
+  const res = await apiFetch(`/wiki`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Falha ao criar pagina (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function updateWikiPage(slug: string, body: WikiPageUpdateInput): Promise<WikiPageDetail> {
+  const res = await apiFetch(`/wiki/${encodeURIComponent(slug)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Falha ao editar pagina (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function deleteWikiPage(slug: string): Promise<void> {
+  const res = await apiFetch(`/wiki/${encodeURIComponent(slug)}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Falha ao excluir pagina (HTTP ${res.status}).`);
+}

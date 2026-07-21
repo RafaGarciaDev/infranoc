@@ -8,11 +8,20 @@ import {
   Alert,
   AlertDetail,
   AlertStatus,
+  createWikiPage,
   getAlert,
   listAlerts,
+  WikiCategory,
 } from "@/lib/api";
 
 const REFRESH_MS = 15000;
+
+const ALERT_CAT_TO_WIKI: Record<string, WikiCategory> = {
+  OT: "ot",
+  energia: "energia",
+  TI: "geral",
+  AD: "ad",
+};
 
 const SEV_ORDER: Record<string, number> = {
   critical: 0,
@@ -90,6 +99,13 @@ function AlertasContent() {
 
   const [ackBusy, setAckBusy] = useState<string | null>(null);
 
+  const [docAlert, setDocAlert] = useState<Alert | null>(null);
+  const [docTitle, setDocTitle] = useState("");
+  const [docCategory, setDocCategory] = useState<WikiCategory>("geral");
+  const [docContent, setDocContent] = useState("");
+  const [docSaving, setDocSaving] = useState(false);
+  const [docError, setDocError] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     setError(null);
     try {
@@ -151,17 +167,54 @@ function AlertasContent() {
     router.push("/alertas");
   }
 
-  async function handleAck(id: string, ev: React.MouseEvent) {
+  async function handleAck(a: Alert, ev: React.MouseEvent) {
     ev.stopPropagation();
-    setAckBusy(id);
+    setAckBusy(a.id);
     setError(null);
     try {
-      await ackAlert(id);
+      await ackAlert(a.id);
       await load();
+      setDocAlert(a);
+      setDocTitle(`Solucao: ${a.alertname}${a.asset ? " em " + a.asset : ""}`);
+      setDocCategory(ALERT_CAT_TO_WIKI[a.categoria ?? ""] ?? "geral");
+      setDocContent(
+        `## Contexto\n\n` +
+        `- Alerta: ${a.alertname}\n` +
+        (a.asset ? `- Ativo: ${a.asset}\n` : "") +
+        `- Severidade: ${a.severity}\n` +
+        (a.summary ? `- Resumo: ${a.summary}\n` : "") +
+        `\n## Solucao aplicada\n\n(descreva aqui o que foi feito para resolver)\n`
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Falha ao acked.");
     } finally {
       setAckBusy(null);
+    }
+  }
+
+  async function handleSaveDoc() {
+    setDocSaving(true);
+    setDocError(null);
+    try {
+      const slugBase = docTitle
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+      const slug = `${slugBase}-${Date.now()}`;
+      await createWikiPage({
+        slug,
+        title: docTitle,
+        category: docCategory,
+        content_md: docContent,
+        tags: docAlert?.categoria ? [docAlert.categoria.toLowerCase(), "incidente"] : ["incidente"],
+      });
+      setDocAlert(null);
+    } catch (e) {
+      setDocError(e instanceof Error ? e.message : "Erro ao salvar na wiki.");
+    } finally {
+      setDocSaving(false);
     }
   }
 
@@ -286,7 +339,7 @@ function AlertasContent() {
                 <td>
                   {a.status === "firing" ? (
                     <button
-                      onClick={(ev) => handleAck(a.id, ev)}
+                      onClick={(ev) => handleAck(a, ev)}
                       disabled={ackBusy === a.id}
                       style={{
                         padding: "4px 10px", borderRadius: 6,
@@ -415,6 +468,61 @@ function AlertasContent() {
                   )}
                 </>
               )}
+            </div>
+          </aside>
+        </>
+      )}
+      {docAlert && (
+        <>
+          <div className="drawer-backdrop" onClick={() => setDocAlert(null)} />
+          <aside className="drawer">
+            <div className="drawer-header">
+              <div>
+                <h2 className="drawer-title">Documentar solucao?</h2>
+                <div className="drawer-subtitle">{docAlert.alertname}</div>
+              </div>
+              <button className="drawer-close" onClick={() => setDocAlert(null)}>x</button>
+            </div>
+            <div className="drawer-body">
+              {docError && <div className="login-error" style={{ marginBottom: 12 }}>{docError}</div>}
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <label className="field">
+                  <span className="field-label">Titulo</span>
+                  <input className="field-select" value={docTitle} onChange={(e) => setDocTitle(e.target.value)} />
+                </label>
+                <label className="field">
+                  <span className="field-label">Categoria</span>
+                  <select
+                    className="field-select"
+                    value={docCategory}
+                    onChange={(e) => setDocCategory(e.target.value as WikiCategory)}
+                  >
+                    <option value="rede">rede</option>
+                    <option value="ad">ad</option>
+                    <option value="linux">linux</option>
+                    <option value="ot">ot</option>
+                    <option value="energia">energia</option>
+                    <option value="seguranca">seguranca</option>
+                    <option value="geral">geral</option>
+                  </select>
+                </label>
+                <label className="field">
+                  <span className="field-label">Solucao (Markdown)</span>
+                  <textarea
+                    className="field-select"
+                    rows={12}
+                    value={docContent}
+                    onChange={(e) => setDocContent(e.target.value)}
+                    style={{ fontFamily: "monospace", resize: "vertical" }}
+                  />
+                </label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="logout-btn" onClick={handleSaveDoc} disabled={docSaving}>
+                    {docSaving ? "Salvando..." : "Salvar na wiki"}
+                  </button>
+                  <button className="logout-btn" onClick={() => setDocAlert(null)}>Agora nao</button>
+                </div>
+              </div>
             </div>
           </aside>
         </>
