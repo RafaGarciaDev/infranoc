@@ -754,3 +754,41 @@ export async function listRdpSessions(): Promise<RdpSession[]> {
   if (!res.ok) throw new Error(`Falha ao listar sessoes RDP (HTTP ${res.status}).`);
   return res.json();
 }
+
+
+/* Bulk operations + reset de senha em massa - Fase 9c */
+export type BulkResultItem = {
+  sam: string;
+  ok: boolean;
+  error: string | null;
+};
+
+export async function bulkEnableUsers(sams: string[], value: boolean): Promise<BulkResultItem[]> {
+  const res = await apiFetch(`/directory/bulk/enable`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sams, value }),
+  });
+  if (!res.ok) throw new Error(`Falha na operacao em massa (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function bulkChangeGroup(sams: string[], groupDn: string, add: boolean): Promise<BulkResultItem[]> {
+  const res = await apiFetch(`/directory/bulk/group`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sams, group_dn: groupDn, add }),
+  });
+  if (!res.ok) throw new Error(`Falha na operacao em massa (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function bulkResetPassword(sams: string[], newPassword: string, mustChange = true): Promise<BulkResultItem[]> {
+  const res = await apiFetch(`/directory/bulk/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sams, new_password: newPassword, must_change: mustChange }),
+  });
+  if (!res.ok) throw new Error(`Falha no reset em massa (HTTP ${res.status}).`);
+  return res.json();
+}

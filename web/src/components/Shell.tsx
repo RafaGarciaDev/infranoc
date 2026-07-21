@@ -26,6 +26,7 @@ const NAV: { section: string; items: NavEntry[] }[] = [
       { href: "/ad-grupos", label: "Grupos (AD)", requires: "ad.read" },
       { href: "/ad-computadores", label: "Computadores (AD)", requires: "ad.read" },
       { href: "/ad-gpos-sessoes", label: "GPOs e Sessoes RDP", requires: "ad.read" },
+      { href: "/ad-bulk", label: "Operacoes em Massa", requires: "ad.write" },
       { href: "/observabilidade", label: "Observabilidade", requires: "obs.read" },
       { href: "/ia", label: "Assistente IA", requires: "ai.chat" },
       { href: "/wiki", label: "Base de Conhecimento", requires: "wiki.read" },

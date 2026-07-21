@@ -510,3 +510,88 @@ async def list_rdp_sessions_route(
 ) -> list[RdpSessionOut]:
     rows = await run_in_threadpool(ps.list_rdp_sessions)
     return [RdpSessionOut(**r) for r in rows]
+
+
+# ------------------------------------------------------------------
+# Fase 9c - Bulk operations + reset de senha em massa
+# ------------------------------------------------------------------
+class BulkResultItem(BaseModel):
+    sam: str
+    ok: bool
+    error: str | None = None
+
+
+class BulkEnableIn(BaseModel):
+    sams: list[str]
+    value: bool = True
+
+
+class BulkGroupIn(BaseModel):
+    sams: list[str]
+    group_dn: str
+    add: bool = True
+
+
+class BulkResetPasswordIn(BaseModel):
+    sams: list[str]
+    new_password: str
+    must_change: bool = True
+
+
+@router.post("/bulk/enable", response_model=list[BulkResultItem])
+async def bulk_enable_route(
+    body: BulkEnableIn,
+    claims: Annotated[dict, Depends(require("ad.write"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[BulkResultItem]:
+    results: list[BulkResultItem] = []
+    for sam in body.sams:
+        try:
+            await run_in_threadpool(ldap.set_enabled, sam, body.value)
+            results.append(BulkResultItem(sam=sam, ok=True))
+        except Exception as e:
+            results.append(BulkResultItem(sam=sam, ok=False, error=str(e)))
+    await audit_service.log(
+        session,
+        "ad.bulk.enable" if body.value else "ad.bulk.disable",
+        target=",".join(body.sams),
+    )
+    return results
+
+
+@router.post("/bulk/group", response_model=list[BulkResultItem])
+async def bulk_group_route(
+    body: BulkGroupIn,
+    claims: Annotated[dict, Depends(require("ad.write"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[BulkResultItem]:
+    results: list[BulkResultItem] = []
+    for sam in body.sams:
+        try:
+            await run_in_threadpool(ldap.set_group, sam, body.group_dn, body.add)
+            results.append(BulkResultItem(sam=sam, ok=True))
+        except Exception as e:
+            results.append(BulkResultItem(sam=sam, ok=False, error=str(e)))
+    await audit_service.log(
+        session,
+        "ad.bulk.group_add" if body.add else "ad.bulk.group_remove",
+        target=f"{','.join(body.sams)} -> {body.group_dn}",
+    )
+    return results
+
+
+@router.post("/bulk/reset-password", response_model=list[BulkResultItem])
+async def bulk_reset_password_route(
+    body: BulkResetPasswordIn,
+    claims: Annotated[dict, Depends(require("ad.reset-password"))],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[BulkResultItem]:
+    results: list[BulkResultItem] = []
+    for sam in body.sams:
+        try:
+            await run_in_threadpool(ps.reset_password, sam, body.new_password, body.must_change)
+            results.append(BulkResultItem(sam=sam, ok=True))
+        except Exception as e:
+            results.append(BulkResultItem(sam=sam, ok=False, error=str(e)))
+    await audit_service.log(session, "ad.bulk.reset-password", target=",".join(body.sams))
+    return results
