@@ -812,3 +812,32 @@ export async function uploadUserPhoto(sam: string, file: globalThis.File): Promi
   });
   if (!res.ok) throw new Error(`Falha ao enviar foto (HTTP ${res.status}).`);
 }
+
+
+/* Hub de Acessos Diretos - Fase 9k */
+export type HubAsset = {
+  id: string;
+  name: string;
+  hostname: string | null;
+  ip_address: string | null;
+  type: string;
+  site: string;
+};
+
+export async function listHubAssets(): Promise<HubAsset[]> {
+  const res = await apiFetch(`/hub/acessos`);
+  if (!res.ok) throw new Error(`Falha ao listar ativos (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function downloadRdpFile(assetId: string, filename: string): Promise<void> {
+  const res = await apiFetch(`/hub/acessos/${assetId}/rdp`);
+  if (!res.ok) throw new Error(`Falha ao gerar RDP (HTTP ${res.status}).`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${filename}.rdp`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
