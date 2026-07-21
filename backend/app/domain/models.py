@@ -392,3 +392,40 @@ class WikiPageVersion(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     page: Mapped[WikiPage] = relationship(back_populates="versions")
+
+
+# ============================================================
+# Fase 9f - Backup (painel simulado, feature flag para Veeam real)
+# ============================================================
+class BackupJob(Base, AuditMixin):
+    __tablename__ = "backup_jobs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+
+    name: Mapped[str] = mapped_column(String(128))
+    source: Mapped[str] = mapped_column(String(128))
+    target: Mapped[str] = mapped_column(String(128))
+    schedule: Mapped[str] = mapped_column(String(64))
+    retention_days: Mapped[int] = mapped_column(Integer, default=30)
+    rpo_target_hours: Mapped[int] = mapped_column(Integer, default=24)
+    rto_target_hours: Mapped[int] = mapped_column(Integer, default=4)
+    last_run: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_status: Mapped[str] = mapped_column(String(16), default="success")
+
+    restore_points: Mapped[list["RestorePoint"]] = relationship(
+        back_populates="job", cascade="all, delete-orphan", order_by="RestorePoint.timestamp.desc()",
+    )
+
+
+class RestorePoint(Base):
+    __tablename__ = "restore_points"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    job_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("backup_jobs.id", ondelete="CASCADE"))
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    size_gb: Mapped[float] = mapped_column(default=0.0)
+    status: Mapped[str] = mapped_column(String(16), default="success")
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    job: Mapped[BackupJob] = relationship(back_populates="restore_points")

@@ -904,3 +904,53 @@ export async function toolkitSs(): Promise<string> {
   const data = await res.json();
   return data.output as string;
 }
+
+
+/* Painel de Backup (Fase 9f) */
+export type BackupJob = {
+  id: string;
+  name: string;
+  source: string;
+  target: string;
+  schedule: string;
+  retention_days: number;
+  rpo_target_hours: number;
+  rto_target_hours: number;
+  last_run: string | null;
+  last_status: string;
+  actual_rpo_hours: number | null;
+  rpo_exceeded: boolean;
+  restore_point_count: number;
+};
+
+export async function listBackupJobs(): Promise<BackupJob[]> {
+  const res = await apiFetch(`/backup/jobs`);
+  if (!res.ok) throw new Error(`Falha ao listar jobs (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export type RestorePoint = {
+  timestamp: string;
+  size_gb: number;
+  status: string;
+  expires_at: string | null;
+};
+
+export async function listRestorePoints(jobId: string): Promise<RestorePoint[]> {
+  const res = await apiFetch(`/backup/jobs/${jobId}/restore-points`);
+  if (!res.ok) throw new Error(`Falha ao listar restore points (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export type BackupKpis = {
+  total_jobs: number;
+  jobs_ok: number;
+  jobs_failed: number;
+  jobs_rpo_exceeded: number;
+};
+
+export async function getBackupKpis(): Promise<BackupKpis> {
+  const res = await apiFetch(`/backup/kpis`);
+  if (!res.ok) throw new Error(`Falha ao buscar KPIs (HTTP ${res.status}).`);
+  return res.json();
+}
