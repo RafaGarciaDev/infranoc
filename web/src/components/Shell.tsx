@@ -34,6 +34,7 @@ const NAV: { section: string; items: NavEntry[] }[] = [
       { href: "/linux-toolkit", label: "Linux Ops + Toolkit", requires: "linux.read" },
       { href: "/backup", label: "Backup", requires: "backup.read" },
       { href: "/security", label: "Seguranca (SIEM)", requires: "security.read" },
+      { href: "/vpn", label: "VPN", requires: "vpn.read" },
     ],
   },
 ];
