@@ -5,6 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { clearToken, getToken } from "@/lib/api";
 
+type Theme = "dark" | "light";
+
 type NavEntry = {
   href: string;
   label: string;
@@ -35,6 +37,7 @@ const NAV: { section: string; items: NavEntry[] }[] = [
       { href: "/backup", label: "Backup", requires: "backup.read" },
       { href: "/security", label: "Seguranca (SIEM)", requires: "security.read" },
       { href: "/vpn", label: "VPN", requires: "vpn.read" },
+      { href: "/mapa-rede", label: "Mapa de Rede", requires: "cmdb.read" },
     ],
   },
 ];
@@ -51,6 +54,7 @@ export default function Shell({
   const [name, setName] = useState<string>("");
   const [perms, setPerms] = useState<string[]>([]);
   const [ready, setReady] = useState(false);
+  const [theme, setTheme] = useState<Theme>("dark");
 
   useEffect(() => {
     if (!getToken()) {
@@ -63,8 +67,18 @@ export default function Shell({
     } catch {
       setPerms([]);
     }
+    const savedTheme = (localStorage.getItem("infranoc.theme") as Theme | null) ?? "dark";
+    setTheme(savedTheme);
+    document.documentElement.setAttribute("data-theme", savedTheme);
     setReady(true);
   }, [router]);
+
+  function toggleTheme() {
+    const next: Theme = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    document.documentElement.setAttribute("data-theme", next);
+    localStorage.setItem("infranoc.theme", next);
+  }
 
   function logout() {
     clearToken();
@@ -129,6 +143,9 @@ export default function Shell({
               online
             </span>
             <span className="app-username">{name}</span>
+            <button className="logout-btn" onClick={toggleTheme}>
+              {theme === "dark" ? "Tema claro" : "Tema escuro"}
+            </button>
             <button className="logout-btn" onClick={logout}>
               Sair
             </button>

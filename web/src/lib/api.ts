@@ -1106,6 +1106,48 @@ export async function updateVpnUser(
   if (!res.ok) throw new Error(`Falha ao editar usuario VPN (HTTP ${res.status}).`);
   return res.json();
 }
+/* Mapa de Rede (Fase 9h) */
+export type NetworkNode = {
+  id: string;
+  name: string;
+  type: string;
+  layer: "TI" | "OT" | "Physical";
+  site: string;
+  status: string;
+  criticality: "Low" | "Medium" | "High" | "Critical";
+  sector_id: string | null;
+};
+export type NetworkLinkItem = {
+  id: string;
+  asset_a_id: string;
+  asset_b_id: string;
+  link_type: "Ethernet" | "Fibra" | "Wireless";
+};
+export type NetworkGraph = { nodes: NetworkNode[]; links: NetworkLinkItem[] };
+
+export async function getNetworkGraph(): Promise<NetworkGraph> {
+  const res = await apiFetch(`/network/graph`);
+  if (!res.ok) throw new Error(`Falha ao carregar mapa de rede (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function createNetworkLink(
+  assetAId: string, assetBId: string, linkType: string = "Ethernet"
+): Promise<NetworkLinkItem> {
+  const res = await apiFetch(`/network/links`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ asset_a_id: assetAId, asset_b_id: assetBId, link_type: linkType }),
+  });
+  if (!res.ok) throw new Error(`Falha ao criar link (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function deleteNetworkLink(id: string): Promise<void> {
+  const res = await apiFetch(`/network/links/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Falha ao remover link (HTTP ${res.status}).`);
+}
+
 export async function simulateHandshake(id: string): Promise<VpnUser> {
   const res = await apiFetch(`/vpn/users/${id}/simulate-handshake`, { method: "POST" });
   if (!res.ok) throw new Error(`Falha ao simular handshake (HTTP ${res.status}).`);
