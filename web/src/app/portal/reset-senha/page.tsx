@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { requestPasswordReset, confirmPasswordReset } from "@/lib/api";
 
-export default function PortalResetSenhaPage() {
+function PortalResetSenhaContent() {
   const searchParams = useSearchParams();
   const tokenFromUrl = searchParams.get("token") || "";
 
@@ -92,5 +92,13 @@ export default function PortalResetSenhaPage() {
         </a>
       </div>
     </div>
+  );
+}
+
+export default function PortalResetSenhaPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: "100vh", background: "var(--bg)" }} />}>
+      <PortalResetSenhaContent />
+    </Suspense>
   );
 }
