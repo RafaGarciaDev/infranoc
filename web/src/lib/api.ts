@@ -1023,3 +1023,38 @@ export async function confirmPasswordReset(token: string, newPassword: string): 
     throw new Error(msg);
   }
 }
+
+
+/* Painel de Seguranca / SIEM (Fase 9g) */
+export type SecurityEvent = {
+  timestamp: string;
+  source_host: string;
+  rule_id: string;
+  rule_description: string;
+  level: number;
+  mitre_tactic: string;
+  mitre_technique_id: string;
+  mitre_technique_name: string;
+};
+
+export async function listSecurityEvents(levelMin?: number): Promise<SecurityEvent[]> {
+  const qs = levelMin !== undefined ? `?level_min=${levelMin}` : "";
+  const res = await apiFetch(`/security/events${qs}`);
+  if (!res.ok) throw new Error(`Falha ao listar eventos (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export type TechniqueBreakdown = { technique_id: string; technique_name: string; tactic: string; count: number };
+export type SecurityKpis = {
+  total_events: number;
+  critical_count: number;
+  high_count: number;
+  hosts_afetados: number;
+  top_techniques: TechniqueBreakdown[];
+};
+
+export async function getSecurityKpis(): Promise<SecurityKpis> {
+  const res = await apiFetch(`/security/kpis`);
+  if (!res.ok) throw new Error(`Falha ao buscar KPIs (HTTP ${res.status}).`);
+  return res.json();
+}

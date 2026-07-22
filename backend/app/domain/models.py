@@ -458,3 +458,23 @@ class PasswordResetToken(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     used: Mapped[bool] = mapped_column(default=False)
+
+
+# ============================================================
+# Fase 9g - SIEM/Seguranca (painel simulado, sem Wazuh real no lab)
+# ============================================================
+class SecurityEvent(Base):
+    __tablename__ = "security_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    source_host: Mapped[str] = mapped_column(String(128))
+    rule_id: Mapped[str] = mapped_column(String(32))
+    rule_description: Mapped[str] = mapped_column(String(256))
+    level: Mapped[int] = mapped_column(Integer)
+    mitre_tactic: Mapped[str] = mapped_column(String(64))
+    mitre_technique_id: Mapped[str] = mapped_column(String(16))
+    mitre_technique_name: Mapped[str] = mapped_column(String(128))
+    raw_summary: Mapped[str] = mapped_column(Text)
