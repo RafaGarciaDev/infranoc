@@ -1,0 +1,118 @@
+"use client";
+
+import React, { useCallback, useEffect, useState } from "react";
+import Shell from "@/components/Shell";
+import { listSecurityEvents, getSecurityKpis, SecurityEvent, SecurityKpis } from "@/lib/api";
+
+function fmtDate(iso: string): string {
+  return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function levelBadge(level: number): string {
+  if (level >= 12) return "badge-status-firing";
+  if (level >= 8) return "badge badge-cat";
+  return "badge-status-resolved";
+}
+
+export default function SecurityPage() {
+  const [kpis, setKpis] = useState<SecurityKpis | null>(null);
+  const [events, setEvents] = useState<SecurityEvent[]>([]);
+  const [levelFilter, setLevelFilter] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      const levelMin = levelFilter ? parseInt(levelFilter, 10) : undefined;
+      const [k, e] = await Promise.all([getSecurityKpis(), listSecurityEvents(levelMin)]);
+      setKpis(k);
+      setEvents(e);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro inesperado.");
+    } finally {
+      setLoading(false);
+    }
+  }, [levelFilter]);
+
+  useEffect(() => {
+    setLoading(true);
+    load();
+  }, [load]);
+
+  return (
+    <Shell title="Seguranca / SIEM (simulado)">
+      {error && <div className="login-error" style={{ marginBottom: 16 }}>{error}</div>}
+
+      {kpis && (
+        <div style={{ display: "flex", gap: 16, marginBottom: 24 }}>
+          <div style={{ background: "var(--panel)", padding: 16, borderRadius: 8, border: "1px solid var(--border)", flex: 1 }}>
+            <div style={{ fontSize: 12, color: "var(--fg-2)" }}>Total de eventos (30d)</div>
+            <div style={{ fontSize: 28, fontWeight: 700 }}>{kpis.total_events}</div>
+          </div>
+          <div style={{ background: "var(--panel)", padding: 16, borderRadius: 8, border: "1px solid var(--border)", flex: 1 }}>
+            <div style={{ fontSize: 12, color: "var(--fg-2)" }}>Criticos (nivel 12+)</div>
+            <div style={{ fontSize: 28, fontWeight: 700, color: "#ef4444" }}>{kpis.critical_count}</div>
+          </div>
+          <div style={{ background: "var(--panel)", padding: 16, borderRadius: 8, border: "1px solid var(--border)", flex: 1 }}>
+            <div style={{ fontSize: 12, color: "var(--fg-2)" }}>Altos (nivel 8-11)</div>
+            <div style={{ fontSize: 28, fontWeight: 700, color: "#f59e0b" }}>{kpis.high_count}</div>
+          </div>
+          <div style={{ background: "var(--panel)", padding: 16, borderRadius: 8, border: "1px solid var(--border)", flex: 1 }}>
+            <div style={{ fontSize: 12, color: "var(--fg-2)" }}>Hosts afetados</div>
+            <div style={{ fontSize: 28, fontWeight: 700 }}>{kpis.hosts_afetados}</div>
+          </div>
+        </div>
+      )}
+
+      {kpis && kpis.top_techniques.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <h2 style={{ marginBottom: 8 }}>Top tecnicas MITRE ATT&amp;CK</h2>
+          <table className="alerts-table">
+            <thead>
+              <tr><th>Tecnica</th><th>Tatica</th><th>Ocorrencias</th></tr>
+            </thead>
+            <tbody>
+              {kpis.top_techniques.map((t) => (
+                <tr key={t.technique_id}>
+                  <td className="alert-name">{t.technique_id} - {t.technique_name}</td>
+                  <td><span className="badge badge-cat">{t.tactic}</span></td>
+                  <td>{t.count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="alerts-toolbar">
+        <label className="field">
+          <span className="field-label">Nivel minimo</span>
+          <select className="field-select" value={levelFilter} onChange={(e) => setLevelFilter(e.target.value)}>
+            <option value="">todos</option>
+            <option value="8">8+ (alto)</option>
+            <option value="12">12+ (critico)</option>
+          </select>
+        </label>
+        <span className="alerts-count">{loading ? "carregando..." : `${events.length} evento(s)`}</span>
+      </div>
+
+      <table className="alerts-table">
+        <thead>
+          <tr><th>Timestamp</th><th>Host</th><th>Regra</th><th>Nivel</th><th>Tecnica MITRE</th></tr>
+        </thead>
+        <tbody>
+          {events.map((ev, i) => (
+            <tr key={i}>
+              <td style={{ fontSize: 12, color: "var(--fg-2)" }}>{fmtDate(ev.timestamp)}</td>
+              <td className="alert-name">{ev.source_host}</td>
+              <td style={{ fontSize: 12 }}>{ev.rule_description}</td>
+              <td><span className={levelBadge(ev.level)}>{ev.level}</span></td>
+              <td style={{ fontSize: 12 }}>{ev.mitre_technique_id} - {ev.mitre_technique_name}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Shell>
+  );
+}
