@@ -33,7 +33,6 @@ async def seed_network(tenant_id: uuid.UUID) -> int:
         sectors = (
             await session.execute(select(Sector).where(Sector.tenant_id == tenant_id))
         ).scalars().all()
-        sector_by_id = {s.id: s for s in sectors}
         core_sector = next((s for s in sectors if s.name == CORE_SECTOR_NAME), None)
         if not core_sector:
             print(f"Setor '{CORE_SECTOR_NAME}' nao encontrado - abortando.")
