@@ -65,10 +65,10 @@ async def get_network_graph(
     ]
     links_out = [
         NetworkLinkOut(
-            id=str(l.id), asset_a_id=str(l.asset_a_id), asset_b_id=str(l.asset_b_id),
-            link_type=l.link_type,
+            id=str(lk.id), asset_a_id=str(lk.asset_a_id), asset_b_id=str(lk.asset_b_id),
+            link_type=lk.link_type,
         )
-        for l in links
+        for lk in links
     ]
     return NetworkGraphOut(nodes=nodes, links=links_out)
 
