@@ -50,6 +50,8 @@ PERMISSIONS = [
     ("backup.read", "Ver painel de backup (jobs, restore points, KPIs)"),
     ("portal.access", "Acesso ao Portal do Usuario Final (funcionarios)"),
     ("security.read", "Ver painel de seguranca (eventos, MITRE ATT&CK)"),
+    ("vpn.read", "Ver usuarios e sessoes VPN"),
+    ("vpn.write", "Criar/revogar usuarios VPN"),
 ]
 
 

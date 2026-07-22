@@ -478,3 +478,39 @@ class SecurityEvent(Base):
     mitre_technique_id: Mapped[str] = mapped_column(String(16))
     mitre_technique_name: Mapped[str] = mapped_column(String(128))
     raw_summary: Mapped[str] = mapped_column(Text)
+
+
+# ============================================================
+# Fase 9i - VPN (gestao simulada, sem WireGuard real no lab)
+# ============================================================
+class VpnUser(Base, AuditMixin):
+    __tablename__ = "vpn_users"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+
+    name: Mapped[str] = mapped_column(String(128))
+    email: Mapped[str] = mapped_column(String(256))
+    ad_sam: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    public_key: Mapped[str] = mapped_column(String(64))
+    internal_ip: Mapped[str] = mapped_column(String(32))
+    active: Mapped[bool] = mapped_column(default=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    sessions: Mapped[list["VpnSession"]] = relationship(
+        back_populates="vpn_user", cascade="all, delete-orphan", order_by="VpnSession.connected_at.desc()",
+    )
+
+
+class VpnSession(Base):
+    __tablename__ = "vpn_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    vpn_user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("vpn_users.id", ondelete="CASCADE"))
+    endpoint_publico: Mapped[str] = mapped_column(String(64))
+    connected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_handshake: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    bytes_rx: Mapped[int] = mapped_column(default=0)
+    bytes_tx: Mapped[int] = mapped_column(default=0)
+
+    vpn_user: Mapped[VpnUser] = relationship(back_populates="sessions")

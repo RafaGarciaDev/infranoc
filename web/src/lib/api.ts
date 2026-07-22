@@ -1058,3 +1058,90 @@ export async function getSecurityKpis(): Promise<SecurityKpis> {
   if (!res.ok) throw new Error(`Falha ao buscar KPIs (HTTP ${res.status}).`);
   return res.json();
 }
+
+
+/* Gestao de VPN (Fase 9i) */
+export type VpnUser = {
+  id: string;
+  name: string;
+  email: string;
+  ad_sam: string | null;
+  internal_ip: string;
+  active: boolean;
+  expires_at: string | null;
+  last_handshake: string | null;
+  stale: boolean;
+};
+
+export async function listVpnUsers(): Promise<VpnUser[]> {
+  const res = await apiFetch(`/vpn/users`);
+  if (!res.ok) throw new Error(`Falha ao listar usuarios VPN (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function createVpnUser(name: string, email: string, expiresDays = 90): Promise<VpnUser> {
+  const res = await apiFetch(`/vpn/users`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, email, expires_days: expiresDays }),
+  });
+  if (!res.ok) throw new Error(`Falha ao criar usuario VPN (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function reactivateVpnUser(id: string): Promise<VpnUser> {
+  const res = await apiFetch(`/vpn/users/${id}/reactivate`, { method: "POST" });
+  if (!res.ok) throw new Error(`Falha ao reativar usuario VPN (HTTP ${res.status}).`);
+  return res.json();
+}
+export async function updateVpnUser(
+  id: string,
+  data: { name?: string; email?: string; ad_sam?: string | null; expires_at?: string | null }
+): Promise<VpnUser> {
+  const res = await apiFetch(`/vpn/users/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`Falha ao editar usuario VPN (HTTP ${res.status}).`);
+  return res.json();
+}
+export async function simulateHandshake(id: string): Promise<VpnUser> {
+  const res = await apiFetch(`/vpn/users/${id}/simulate-handshake`, { method: "POST" });
+  if (!res.ok) throw new Error(`Falha ao simular handshake (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function revokeVpnUser(id: string): Promise<void> {
+  const res = await apiFetch(`/vpn/users/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Falha ao revogar usuario VPN (HTTP ${res.status}).`);
+}
+
+export async function downloadVpnConfig(id: string, filename: string): Promise<void> {
+  const res = await apiFetch(`/vpn/users/${id}/config`);
+  if (!res.ok) throw new Error(`Falha ao gerar config (HTTP ${res.status}).`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${filename}.conf`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export type VpnSessionItem = {
+  user_name: string;
+  user_email: string;
+  endpoint_publico: string;
+  connected_at: string;
+  last_handshake: string;
+  bytes_rx: number;
+  bytes_tx: number;
+  stale: boolean;
+};
+
+export async function listVpnSessions(): Promise<VpnSessionItem[]> {
+  const res = await apiFetch(`/vpn/sessions`);
+  if (!res.ok) throw new Error(`Falha ao listar sessoes VPN (HTTP ${res.status}).`);
+  return res.json();
+}
