@@ -429,3 +429,32 @@ class RestorePoint(Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     job: Mapped[BackupJob] = relationship(back_populates="restore_points")
+
+
+# ============================================================
+# Fase 9j - Portal do Usuario Final
+# ============================================================
+class PortalTicket(Base):
+    __tablename__ = "portal_tickets"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+    sam: Mapped[str] = mapped_column(String(64), index=True)
+    email: Mapped[str] = mapped_column(String(256))
+    title: Mapped[str] = mapped_column(String(256))
+    detail: Mapped[str] = mapped_column(Text)
+    peppermint_ticket_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="open")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+    sam: Mapped[str] = mapped_column(String(64), index=True)
+    token: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used: Mapped[bool] = mapped_column(default=False)
