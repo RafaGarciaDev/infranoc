@@ -5,35 +5,101 @@
  * ========================================================= */
 
 :root {
-  /* backgrounds */
-  --bg-0: #0b1220;       /* fundo mais profundo */
-  --bg-1: #111a2e;       /* painel */
-  --bg-2: #182338;       /* elemento levantado */
-  --bg-3: #21304b;       /* hover */
-  --border: #253453;
-  --border-strong: #34486d;
+  /* backgrounds (dark - default) */
+  --bg-0: #16181d;
+  --bg-1: #1e2128;
+  --bg-2: #262a33;
+  --bg-3: #2f333d;
+  --border: #33373f;
+  --border-strong: #454a54;
 
   /* texto */
-  --fg-0: #e6ecf5;       /* principal */
-  --fg-1: #a9b6cf;       /* secundario */
-  --fg-2: #6f7f9b;       /* terciario / labels */
+  --fg-0: #f3f3f3;
+  --fg-1: #b6b9c3;
+  --fg-2: #8a8d96;
 
-  /* acentos */
-  --accent: #4f8cff;
-  --accent-strong: #6ba0ff;
-  --accent-dim: #2b4b85;
+  /* acentos (azul estilo Salesforce Lightning) */
+  --accent: #5eb1ff;
+  --accent-strong: #85c4ff;
+  --accent-dim: #1d3a5c;
 
   /* semantico */
-  --sev-critical: #ff5470;
-  --sev-critical-bg: #3a1120;
-  --sev-high: #ff8a3d;
-  --sev-high-bg: #3a2210;
-  --sev-warning: #ffcc4d;
-  --sev-warning-bg: #3a2e0f;
-  --sev-info: #6ba0ff;
-  --sev-info-bg: #16264a;
-  --ok: #52d67a;
-  --ok-bg: #123020;
+  --sev-critical: #ff6b6b;
+  --sev-critical-bg: #3a2024;
+  --sev-high: #ffb020;
+  --sev-high-bg: #3a2e14;
+  --sev-warning: #ffd666;
+  --sev-warning-bg: #3a3319;
+  --sev-info: #5eb1ff;
+  --sev-info-bg: #1a2c3f;
+  --ok: #45c785;
+  --ok-bg: #163023;
+
+  /* CMDB */
+  --crit-critical: #ff6b6b;
+  --crit-critical-bg: #3a2024;
+  --crit-high:     #ffb020;
+  --crit-high-bg:  #3a2e14;
+  --crit-medium:   #ffd666;
+  --crit-medium-bg:#3a3319;
+  --crit-low:      #5eb1ff;
+  --crit-low-bg:   #1a2c3f;
+
+  --layer-ti:       #5eb1ff;
+  --layer-ti-bg:    #1a2c3f;
+  --layer-ot:       #ffb020;
+  --layer-ot-bg:    #3a2e14;
+  --layer-physical: #45c785;
+  --layer-physical-bg: #163023;
+}
+
+:root[data-theme="light"] {
+  /* backgrounds (light - estilo Salesforce Lightning) */
+  --bg-0: #f3f3f3;
+  --bg-1: #ffffff;
+  --bg-2: #f4f6f9;
+  --bg-3: #eef1f6;
+  --border: #e0e5ee;
+  --border-strong: #c9d1de;
+
+  /* texto */
+  --fg-0: #181818;
+  --fg-1: #54545a;
+  --fg-2: #706e6b;
+
+  /* acentos */
+  --accent: #0176d3;
+  --accent-strong: #014486;
+  --accent-dim: #eaf4fe;
+
+  /* semantico */
+  --sev-critical: #ba0517;
+  --sev-critical-bg: #fdecea;
+  --sev-high: #a34600;
+  --sev-high-bg: #fff1e0;
+  --sev-warning: #8a6a00;
+  --sev-warning-bg: #fff8e1;
+  --sev-info: #0176d3;
+  --sev-info-bg: #eaf4fe;
+  --ok: #2e844a;
+  --ok-bg: #e7f5ec;
+
+  /* CMDB */
+  --crit-critical: #ba0517;
+  --crit-critical-bg: #fdecea;
+  --crit-high:     #a34600;
+  --crit-high-bg:  #fff1e0;
+  --crit-medium:   #8a6a00;
+  --crit-medium-bg:#fff8e1;
+  --crit-low:      #0176d3;
+  --crit-low-bg:   #eaf4fe;
+
+  --layer-ti:       #0176d3;
+  --layer-ti-bg:    #eaf4fe;
+  --layer-ot:       #a34600;
+  --layer-ot-bg:    #fff1e0;
+  --layer-physical: #2e844a;
+  --layer-physical-bg: #e7f5ec;
 }
 
 * { box-sizing: border-box; }
@@ -495,24 +561,8 @@ input, select, textarea { font-family: inherit; }
 
 /* =========================================================
  * CMDB / Ativos (Fase 4 - Bloco 5)
+ * (variaveis --crit-* e --layer-* movidas para o :root principal)
  * ========================================================= */
-:root {
-  --crit-critical: #ff5470;
-  --crit-critical-bg: #3a1120;
-  --crit-high:     #ff8a3d;
-  --crit-high-bg:  #3a2210;
-  --crit-medium:   #ffcc4d;
-  --crit-medium-bg:#3a2e0f;
-  --crit-low:      #6ba0ff;
-  --crit-low-bg:   #16264a;
-
-  --layer-ti:       #6ba0ff;
-  --layer-ti-bg:    #16264a;
-  --layer-ot:       #ff8a3d;
-  --layer-ot-bg:    #3a2210;
-  --layer-physical: #52d67a;
-  --layer-physical-bg: #123020;
-}
 
 .badge-crit-Critical { background: var(--crit-critical-bg); color: var(--crit-critical); border-color: var(--crit-critical); }
 .badge-crit-High     { background: var(--crit-high-bg);     color: var(--crit-high);     border-color: var(--crit-high); }
@@ -719,4 +769,11 @@ input, select, textarea { font-family: inherit; }
   object-fit: cover;
   float: right;
   margin: 0 0 8px 16px;
+}
+
+html {
+  transition: background-color 0.2s ease;
+}
+body, .sidebar, .topbar, .panel, .alerts-table, .cmdb-table, .login-card {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }

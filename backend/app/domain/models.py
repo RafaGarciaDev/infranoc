@@ -207,6 +207,38 @@ class Sector(Base, AuditMixin):
 
 
 # ============================================================
+# Fase 9h - Mapa de Rede Interativo
+# ============================================================
+class NetworkLinkType(str, PyEnum):
+    Ethernet = "Ethernet"
+    Fibra = "Fibra"
+    Wireless = "Wireless"
+
+
+class NetworkLink(Base, AuditMixin):
+    """Conexao logica entre dois ativos do CMDB, para o Mapa de Rede."""
+    __tablename__ = "network_links"
+    __table_args__ = (
+        Index("ix_network_links_asset_a", "asset_a_id"),
+        Index("ix_network_links_asset_b", "asset_b_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+
+    asset_a_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("assets.id", ondelete="CASCADE")
+    )
+    asset_b_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("assets.id", ondelete="CASCADE")
+    )
+    link_type: Mapped[NetworkLinkType] = mapped_column(
+        SQLEnum(NetworkLinkType, name="network_link_type"),
+        default=NetworkLinkType.Ethernet,
+    )
+
+
+# ============================================================
 # Fase 4 - CMDB: Ativos
 # ============================================================
 class Asset(Base, AuditMixin):
