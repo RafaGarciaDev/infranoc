@@ -954,3 +954,72 @@ export async function getBackupKpis(): Promise<BackupKpis> {
   if (!res.ok) throw new Error(`Falha ao buscar KPIs (HTTP ${res.status}).`);
   return res.json();
 }
+
+
+/* Portal do Usuario Final - Fase 9j */
+export type PortalLoginResult = { access_token: string; display_name: string; email: string };
+export async function portalLogin(sam: string, password: string): Promise<PortalLoginResult> {
+  const res = await fetch(`${API_URL}/portal/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sam, password }),
+  });
+  if (!res.ok) {
+    let msg = "Usuario ou senha invalidos.";
+    try { const data = await res.json(); if (data?.detail) msg = data.detail; } catch {}
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+export type PortalTicket = {
+  id: string;
+  title: string;
+  detail: string;
+  status: string;
+  peppermint_ticket_id: string | null;
+  created_at: string;
+};
+
+export async function listMyTickets(): Promise<PortalTicket[]> {
+  const res = await apiFetch(`/portal/chamados`);
+  if (!res.ok) throw new Error(`Falha ao listar chamados (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function createMyTicket(title: string, detail: string): Promise<PortalTicket> {
+  const res = await apiFetch(`/portal/chamados`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title, detail }),
+  });
+  if (!res.ok) throw new Error(`Falha ao abrir chamado (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function requestPasswordReset(sam: string): Promise<{ reset_url: string; aviso: string }> {
+  const res = await fetch(`${API_URL}/portal/reset-senha/solicitar`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sam }),
+  });
+  if (!res.ok) {
+    let msg = `Falha ao solicitar reset (HTTP ${res.status}).`;
+    try { const data = await res.json(); if (data?.detail) msg = data.detail; } catch {}
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+export async function confirmPasswordReset(token: string, newPassword: string): Promise<void> {
+  const res = await fetch(`${API_URL}/portal/reset-senha/confirmar`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, new_password: newPassword }),
+  });
+  if (!res.ok) {
+    let msg = `Falha ao confirmar reset (HTTP ${res.status}).`;
+    try { const data = await res.json(); if (data?.detail) msg = data.detail; } catch {}
+    throw new Error(msg);
+  }
+}

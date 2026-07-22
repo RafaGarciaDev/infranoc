@@ -455,3 +455,34 @@ class LdapClient:
             c.modify(dn, {"thumbnailPhoto": [(MODIFY_REPLACE, [data])]})
             if not c.result.get("result") == 0:
                 raise RuntimeError(f"Falha ao definir foto: {c.result.get('description')}")
+
+
+    # ------------------------------------------------------------------
+    # Fase 9j - Autenticacao de usuario final (Portal), bind com a propria senha
+    # ------------------------------------------------------------------
+    def authenticate_user(self, sam: str, password: str) -> dict | None:
+        """Tenta autenticar via bind LDAP com as credenciais do proprio usuario.
+        Retorna dados basicos se sucesso, ou None se credenciais invalidas."""
+        from ldap3 import Server, Connection, ALL, core
+
+        upn = f"{sam}@infranoc.lab"
+        server = Server(settings.ad_server, port=settings.ad_port, use_ssl=settings.ad_use_ssl, get_info=ALL)
+        try:
+            conn = Connection(server, user=upn, password=password, auto_bind=True)
+        except core.exceptions.LDAPBindError:
+            return None
+        try:
+            conn.search(
+                self.base, f"(sAMAccountName={sam})",
+                attributes=["displayName", "mail", "sAMAccountName"],
+            )
+            if not conn.entries:
+                return None
+            e = conn.entries[0]
+            return {
+                "sam": str(e.sAMAccountName),
+                "display_name": str(e.displayName) if e.displayName.value else sam,
+                "email": str(e.mail) if e.mail.value else f"{sam}@infranoc.lab",
+            }
+        finally:
+            conn.unbind()

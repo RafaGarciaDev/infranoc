@@ -37,5 +37,16 @@ def create_refresh_token(sub: str) -> str:
     )
 
 
+def create_portal_token(sam: str, tenant_id: str) -> str:
+    """Token leve para o Portal do Usuario Final (Fase 9j) - autenticado via
+    bind LDAP com a senha do proprio funcionario, sem conta na tabela users."""
+    exp = datetime.now(timezone.utc) + timedelta(minutes=settings.access_expire_min)
+    payload = {
+        "sub": sam, "tenant_id": tenant_id, "perm": ["portal.access", "wiki.read"],
+        "exp": exp, "type": "access",
+    }
+    return jwt.encode(payload, settings.jwt_secret, settings.jwt_algorithm)
+
+
 def decode_token(token: str) -> dict:
     return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])

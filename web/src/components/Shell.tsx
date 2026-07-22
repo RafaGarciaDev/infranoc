@@ -104,6 +104,18 @@ export default function Shell({
               })}
           </div>
         ))}
+        <div className="nav-section">Testes</div>
+        
+          <a
+          href="/portal/login"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="nav-item"
+          title="Abre em nova aba (evita substituir sua sessao de admin)"
+        >
+          <span className="nav-icon" />
+          <span>Portal (visao do funcionario)</span>
+        </a>
       </aside>
 
       <div className="content">
