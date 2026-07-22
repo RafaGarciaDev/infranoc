@@ -4,7 +4,6 @@ Rodar:  uv run python -m app.seed_vpn
 """
 import asyncio
 import secrets
-import uuid
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
