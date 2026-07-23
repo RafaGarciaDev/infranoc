@@ -153,7 +153,7 @@ async def on_alert_firing(session: AsyncSession, tenant_id: uuid.UUID, alert: Al
 
 async def on_alert_resolved(session: AsyncSession, tenant_id: uuid.UUID, alert: Alert):
     key = _dedup_key(alert.alertname, alert.asset)
-    link = (
+    links = (
         await session.execute(
             select(TicketLink).where(
                 TicketLink.tenant_id == tenant_id,
@@ -161,36 +161,38 @@ async def on_alert_resolved(session: AsyncSession, tenant_id: uuid.UUID, alert: 
                 TicketLink.status == "open",
             )
         )
-    ).scalar_one_or_none()
-    if not link:
+    ).scalars().all()
+    if not links:
         return
 
-    if link.peppermint_ticket_id:
-        try:
-            await peppermint.add_comment_and_close(
-                session,
-                tenant_id,
-                link.peppermint_ticket_id,
-                f"Alerta resolvido automaticamente em {datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC.",
-            )
-            await audit_service.log(
-                session,
-                action="peppermint.ticket.close",
-                target=link.peppermint_ticket_id,
-                details=f"dedup_key={key}",
-                tenant_id=tenant_id,
-            )
-        except Exception as e:
-            print("Peppermint fechar falhou:", e)
+    for link in links:
+        if link.peppermint_ticket_id:
+            try:
+                await peppermint.add_comment_and_close(
+                    session,
+                    tenant_id,
+                    link.peppermint_ticket_id,
+                    f"Alerta resolvido automaticamente em {datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC.",
+                )
+                await audit_service.log(
+                    session,
+                    action="peppermint.ticket.close",
+                    target=link.peppermint_ticket_id,
+                    details=f"dedup_key={key}",
+                    tenant_id=tenant_id,
+                )
+            except Exception as e:
+                print("Peppermint fechar falhou:", e)
 
-    # Vikunja fora de escopo por enquanto (Fase 6b fechada so com Peppermint).
-    # vikunja_task_id nunca e preenchido no momento, entao este bloco fica inerte.
-    if link.vikunja_task_id:
-        try:
-            await vikunja.mark_done(link.vikunja_task_id)
-        except Exception as e:
-            print("Vikunja marcar como done falhou:", e)
+        # Vikunja fora de escopo por enquanto (Fase 6b fechada so com Peppermint).
+        # vikunja_task_id nunca e preenchido no momento, entao este bloco fica inerte.
+        if link.vikunja_task_id:
+            try:
+                await vikunja.mark_done(link.vikunja_task_id)
+            except Exception as e:
+                print("Vikunja marcar como done falhou:", e)
 
-    link.status = "closed"
-    link.closed_at = datetime.now(timezone.utc)
+        link.status = "closed"
+        link.closed_at = datetime.now(timezone.utc)
+
     await session.commit()
