@@ -32,3 +32,6 @@ volumes/
 backend/.env
 # AlertManager secrets
 compose/observability/alertmanager/secrets/webhook_password.commit_msg.tmp
+
+# Scripts auxiliares com segredos (nunca versionar)
+create_admin.sql
