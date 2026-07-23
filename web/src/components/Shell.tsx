@@ -38,6 +38,7 @@ const NAV: { section: string; items: NavEntry[] }[] = [
       { href: "/security", label: "Seguranca (SIEM)", requires: "security.read" },
       { href: "/vpn", label: "VPN", requires: "vpn.read" },
       { href: "/mapa-rede", label: "Mapa de Rede", requires: "cmdb.read" },
+      { href: "/dispositivos", label: "Dispositivos", requires: "devices.read" },
     ],
   },
 ];

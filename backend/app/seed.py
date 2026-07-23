@@ -52,6 +52,8 @@ PERMISSIONS = [
     ("security.read", "Ver painel de seguranca (eventos, MITRE ATT&CK)"),
     ("vpn.read", "Ver usuarios e sessoes VPN"),
     ("vpn.write", "Criar/revogar usuarios VPN"),
+    ("devices.read", "Ver perfis de protocolo e historico de comandos de dispositivos"),
+    ("devices.action", "Executar comandos de acao em dispositivos (reiniciar, resetar, etc.)"),
 ]
 
 

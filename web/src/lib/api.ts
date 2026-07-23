@@ -1187,3 +1187,62 @@ export async function listVpnSessions(): Promise<VpnSessionItem[]> {
   if (!res.ok) throw new Error(`Falha ao listar sessoes VPN (HTTP ${res.status}).`);
   return res.json();
 }
+
+// ------------------------------------------------------------------
+// Fase 9L - Console de Gestao de Dispositivos
+// ------------------------------------------------------------------
+export type DeviceAsset = {
+  asset_id: string;
+  asset_name: string;
+  asset_type: string;
+  protocol: string;
+  is_real: boolean;
+  port: number | null;
+};
+
+export async function listDeviceAssets(onlyReal = false): Promise<DeviceAsset[]> {
+  const res = await apiFetch(`/devices/assets${onlyReal ? "?only_real=true" : ""}`);
+  if (!res.ok) throw new Error(`Falha ao listar ativos (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export type DeviceCommandItem = {
+  id: string;
+  name: string;
+  kind: "read" | "action";
+  requires_permission: string;
+};
+
+export async function listDeviceCommands(assetId: string): Promise<DeviceCommandItem[]> {
+  const res = await apiFetch(`/devices/assets/${assetId}/commands`);
+  if (!res.ok) throw new Error(`Falha ao listar comandos (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export type DeviceExecuteResult = {
+  id: string;
+  command_name: string;
+  status: "success" | "error" | "simulated";
+  output: string | null;
+  executed_at: string;
+};
+
+export async function executeDeviceCommand(assetId: string, commandId: string): Promise<DeviceExecuteResult> {
+  const res = await apiFetch(`/devices/assets/${assetId}/commands/${commandId}/execute`, { method: "POST" });
+  if (!res.ok) throw new Error(`Falha ao executar comando (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export type DeviceExecutionItem = {
+  command_name: string;
+  status: "success" | "error" | "simulated";
+  output: string | null;
+  executed_at: string;
+  executed_by: string | null;
+};
+
+export async function listDeviceExecutions(assetId: string): Promise<DeviceExecutionItem[]> {
+  const res = await apiFetch(`/devices/assets/${assetId}/executions`);
+  if (!res.ok) throw new Error(`Falha ao listar historico (HTTP ${res.status}).`);
+  return res.json();
+}
