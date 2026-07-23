@@ -39,6 +39,7 @@ services:
     networks:
       - default
       - observability
+      - itsm
   web:
     build:
       context: ../web
@@ -66,3 +67,6 @@ networks:
   observability:
     external: true
     name: compose_observability
+  itsm:
+    external: true
+    name: compose_default
