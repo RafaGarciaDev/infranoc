@@ -546,3 +546,78 @@ class VpnSession(Base):
     bytes_tx: Mapped[int] = mapped_column(default=0)
 
     vpn_user: Mapped[VpnUser] = relationship(back_populates="sessions")
+
+
+# ============================================================
+# Fase 9L - Console de Gestao de Dispositivos
+# ============================================================
+class DeviceProtocol(str, PyEnum):
+    SSH = "ssh"
+    WinRM = "winrm"
+    SNMP = "snmp"
+    HTTPAPI = "http_api"
+    Modbus = "modbus"
+
+
+class DeviceCommandKind(str, PyEnum):
+    Read = "read"
+    Action = "action"
+
+
+class DeviceCommandStatus(str, PyEnum):
+    Success = "success"
+    Error = "error"
+    Simulated = "simulated"
+
+
+class DeviceProtocolProfile(Base, AuditMixin):
+    """Perfil de protocolo de um ativo do CMDB. is_real=True apenas para os
+    ativos reais do lab (DC01, MES01); os demais sao simulados (ADR-006)."""
+    __tablename__ = "device_protocol_profiles"
+    __table_args__ = (
+        Index("ix_device_protocol_profiles_asset", "asset_id"),
+        UniqueConstraint("asset_id", "protocol", name="uq_device_protocol_profiles_asset_protocol"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+    asset_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("assets.id", ondelete="CASCADE"))
+
+    protocol: Mapped[DeviceProtocol] = mapped_column(SQLEnum(DeviceProtocol, name="device_protocol"))
+    is_real: Mapped[bool] = mapped_column(Boolean, default=False)
+    credential_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class DeviceCommand(Base):
+    """Catalogo de comandos disponiveis por tipo de ativo/protocolo. Nao e
+    por-tenant: e um catalogo global curado (igual as 12 regras do ADR-004)."""
+    __tablename__ = "device_commands"
+    __table_args__ = (
+        UniqueConstraint("asset_type", "protocol", "name", name="uq_device_commands_type_protocol_name"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    asset_type: Mapped[str] = mapped_column(String(64))
+    protocol: Mapped[DeviceProtocol] = mapped_column(SQLEnum(DeviceProtocol, name="device_protocol"))
+    name: Mapped[str] = mapped_column(String(64))
+    kind: Mapped[DeviceCommandKind] = mapped_column(SQLEnum(DeviceCommandKind, name="device_command_kind"))
+    requires_permission: Mapped[str] = mapped_column(String(64), default="devices.read")
+
+
+class DeviceCommandExecution(Base, AuditMixin):
+    """Log de auditoria dedicado de cada execucao de comando (real ou simulada)."""
+    __tablename__ = "device_command_executions"
+    __table_args__ = (
+        Index("ix_device_command_executions_asset", "asset_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+    asset_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("assets.id", ondelete="CASCADE"))
+    command_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("device_commands.id"))
+
+    status: Mapped[DeviceCommandStatus] = mapped_column(
+        SQLEnum(DeviceCommandStatus, name="device_command_execution_status")
+    )
+    output: Mapped[str | None] = mapped_column(Text, nullable=True)
