@@ -333,7 +333,9 @@ class LdapClient:
     # Fase 9c - Gestao de Computadores
     # ------------------------------------------------------------------
     def list_computers(self, base_dn: str | None = None) -> list[dict]:
-        base = base_dn or settings.ad_root_ou
+        # Escopo = raiz do dominio, nao settings.ad_root_ou (VALEVERDE): controladores
+        # de dominio ficam em OU=Domain Controllers, fora da arvore VALEVERDE por design.
+        base = base_dn or settings.ad_domain_dn
         with self._conn() as c:
             c.search(base, "(objectClass=computer)", SUBTREE,
                       attributes=["cn", "distinguishedName", "operatingSystem", "userAccountControl"])

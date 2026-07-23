@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     ad_bind_password: str = ""            # env INFRANOC_AD_BIND_PASSWORD
     ad_users_ou: str = "OU=Usuarios,OU=VALEVERDE,DC=infranoc,DC=lab"
     ad_root_ou: str = "OU=VALEVERDE,DC=infranoc,DC=lab"        # env INFRANOC_AD_ROOT_OU (escopo p/ gestao de OUs/grupos/computadores - Fase 9c)
+    ad_domain_dn: str = "DC=infranoc,DC=lab"        # env INFRANOC_AD_DOMAIN_DN (raiz do dominio - usado em list_computers, que precisa alcancar Domain Controllers, fora de VALEVERDE)
     winrm_host: str = "192.168.56.10"
     winrm_user: str = "svc_infranoc@infranoc.lab"
     winrm_password: str = ""              # env INFRANOC_WINRM_PASSWORD
