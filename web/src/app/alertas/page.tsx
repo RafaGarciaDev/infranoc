@@ -267,15 +267,8 @@ function AlertasContent() {
         </label>
 
         {areaParam && (
-          <div
-            style={{
-              display: "flex", alignItems: "center", gap: 8,
-              padding: "6px 10px", borderRadius: 8,
-              background: "rgba(59,130,246,0.15)",
-              border: "1px solid rgba(59,130,246,0.4)",
-            }}
-          >
-            <span style={{ fontSize: 12, color: "var(--fg-2)" }}>Area:</span>
+          <div className="filter-chip">
+            <span className="text-sm text-muted">Area:</span>
             <span style={{ fontWeight: 600 }}>{areaLabel}</span>
             <button
               onClick={clearArea}
@@ -324,7 +317,7 @@ function AlertasContent() {
                 <td>
                   <div className="alert-name">{a.alertname}</div>
                   {a.summary && (
-                    <div style={{ color: "var(--fg-2)", fontSize: 12 }}>{a.summary}</div>
+                    <div className="text-sm text-muted">{a.summary}</div>
                   )}
                 </td>
                 <td className="alert-asset">{a.asset ?? "-"}</td>
@@ -334,24 +327,19 @@ function AlertasContent() {
                 <td>{statusBadge(a.status)}</td>
                 <td className="alert-time">
                   {fmtRelative(a.starts_at)}
-                  <div style={{ fontSize: 11 }}>{fmtDateTime(a.starts_at)}</div>
+                  <div className="text-xs">{fmtDateTime(a.starts_at)}</div>
                 </td>
                 <td>
                   {a.status === "firing" ? (
                     <button
+                      className="logout-btn btn-primary"
                       onClick={(ev) => handleAck(a, ev)}
                       disabled={ackBusy === a.id}
-                      style={{
-                        padding: "4px 10px", borderRadius: 6,
-                        background: "var(--accent-strong, #334155)",
-                        color: "#fff", border: "none", cursor: "pointer",
-                        fontSize: 12, opacity: ackBusy === a.id ? 0.5 : 1,
-                      }}
                     >
                       {ackBusy === a.id ? "..." : "Ack"}
                     </button>
                   ) : (
-                    <span style={{ fontSize: 11, color: "var(--fg-2)" }}>-</span>
+                    <span className="text-xs text-muted">-</span>
                   )}
                 </td>
               </tr>
@@ -375,7 +363,7 @@ function AlertasContent() {
             </div>
 
             <div className="drawer-body">
-              {detailLoading && <p style={{ color: "var(--fg-2)" }}>carregando...</p>}
+              {detailLoading && <p className="loading">carregando...</p>}
               {detail && (
                 <>
                   <div className="drawer-section">
@@ -406,7 +394,7 @@ function AlertasContent() {
                     <div className="drawer-section-title">Metadados</div>
                     <dl className="drawer-kv">
                       <dt>fingerprint</dt>
-                      <dd style={{ fontFamily: "ui-monospace, monospace", fontSize: 12 }}>
+                      <dd className="text-sm" style={{ fontFamily: "ui-monospace, monospace" }}>
                         {detail.fingerprint}
                       </dd>
                       {detail.asset_id && (

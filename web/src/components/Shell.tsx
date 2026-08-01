@@ -14,6 +14,10 @@ import { clearToken, getToken } from "@/lib/api";
 
 type Theme = "dark" | "light";
 
+function initials(name: string): string {
+  return name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
+}
+
 type NavEntry = {
   href: string;
   label: string;
@@ -178,11 +182,18 @@ export default function Shell({
             </div>
           );
         })}
+
+        <div className="sidebar-footer">
+          <div className="sidebar-avatar">{initials(name || "Usuario")}</div>
+          <div>
+            <div className="sidebar-user-name">{name}</div>
+            <div className="sidebar-user-role">Operador</div>
+          </div>
+        </div>
       </aside>
 
       <div className="content">
         <header className="topbar">
-          <div className="topbar-title">{title}</div>
           <div className="topbar-right">
             <span>
               <span className="status-dot" />
@@ -200,7 +211,12 @@ export default function Shell({
           </div>
         </header>
 
-        <main className="app-main">{children}</main>
+        <main className="app-main">
+          <div className="page-header">
+            <h1 className="page-title">{title}</h1>
+          </div>
+          {children}
+        </main>
       </div>
     </div>
   );
