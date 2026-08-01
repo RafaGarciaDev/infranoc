@@ -1,11 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Shell from "@/components/Shell";
+import Tooltip from "@/components/Tooltip";
 import {
   getNetworkGraph, createNetworkLink, deleteNetworkLink,
-  NetworkNode, NetworkLinkItem,
+  downloadRdpFile, toolkitPortCheck,
+  NetworkNode, NetworkLinkItem, PortCheckResult,
 } from "@/lib/api";
 
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), { ssr: false });
@@ -14,6 +17,13 @@ function cssVar(name: string, fallback: string): string {
   if (typeof window === "undefined") return fallback;
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   return v || fallback;
+}
+
+const REMOTE_ACCESS_TYPES = new Set(["Server", "Workstation"]);
+
+function defaultPortFor(type: string): string {
+  if (type === "Server" || type === "Workstation") return "3389";
+  return "161"; // maioria dos ativos de rede/OT (switch, router, AP, impressora, UPS) fala SNMP
 }
 
 export default function MapaRedePage() {
@@ -28,6 +38,12 @@ export default function MapaRedePage() {
   const [busy, setBusy] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ width: 900, height: 600 });
+
+  const [pcPort, setPcPort] = useState("");
+  const [pcResult, setPcResult] = useState<PortCheckResult | null>(null);
+  const [pcBusy, setPcBusy] = useState(false);
+  const [rdpBusy, setRdpBusy] = useState(false);
+  const [sshCopied, setSshCopied] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -102,6 +118,48 @@ export default function MapaRedePage() {
     }
   }
 
+  function selectNode(n: NetworkNode) {
+    setSelected(n);
+    setPcPort(defaultPortFor(n.type));
+    setPcResult(null);
+    setSshCopied(false);
+  }
+
+  async function handlePortCheck() {
+    if (!selected?.ip_address) return;
+    setPcBusy(true);
+    setPcResult(null);
+    setError(null);
+    try {
+      const r = await toolkitPortCheck(selected.ip_address, parseInt(pcPort, 10));
+      setPcResult(r);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro no teste de conectividade.");
+    } finally {
+      setPcBusy(false);
+    }
+  }
+
+  async function handleDownloadRdp() {
+    if (!selected) return;
+    setRdpBusy(true);
+    setError(null);
+    try {
+      await downloadRdpFile(selected.id, selected.name);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao baixar RDP.");
+    } finally {
+      setRdpBusy(false);
+    }
+  }
+
+  function handleCopySsh() {
+    if (!selected?.ip_address) return;
+    navigator.clipboard.writeText(`ssh admin@${selected.ip_address}`);
+    setSshCopied(true);
+    setTimeout(() => setSshCopied(false), 2000);
+  }
+
   const sortedNodes = useMemo(
     () => [...nodes].sort((a, b) => a.name.localeCompare(b.name)),
     [nodes]
@@ -135,7 +193,7 @@ export default function MapaRedePage() {
             linkColor={() => cssVar("--border-strong", "#454a54")}
             linkWidth={1}
             backgroundColor="transparent"
-            onNodeClick={(n: any) => setSelected(n)}
+            onNodeClick={(n: any) => selectNode(n)}
             onLinkClick={(l: any) => handleDeleteLink(l.id)}
             cooldownTicks={100}
           />
@@ -152,6 +210,64 @@ export default function MapaRedePage() {
             <dt>Site</dt><dd>{selected.site}</dd>
             <dt>Status</dt><dd>{selected.status}</dd>
             <dt>Criticidade</dt><dd>{selected.criticality}</dd>
+            <dt>IP</dt><dd>{selected.ip_address || "-"}</dd>
+          </div>
+
+          <div style={{ marginTop: 16, display: "flex", gap: 24, flexWrap: "wrap" }}>
+            <div>
+              <div className="panel-eyebrow" style={{ marginBottom: 6 }}>Testar conectividade</div>
+              {!selected.ip_address ? (
+                <p style={{ fontSize: 12, color: "var(--fg-2)" }}>Ativo sem IP cadastrado.</p>
+              ) : (
+                <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+                  <label className="field" style={{ minWidth: 140 }}>
+                    <span className="field-label">Host</span>
+                    <input className="field-select" value={selected.ip_address} readOnly />
+                  </label>
+                  <label className="field">
+                    <span className="field-label">Porta</span>
+                    <input className="field-select" value={pcPort} onChange={(e) => setPcPort(e.target.value)} style={{ width: 70 }} />
+                  </label>
+                  <Tooltip label="Testa se a porta esta acessivel a partir do backend (TCP connect)">
+                    <button className="logout-btn" disabled={pcBusy} onClick={handlePortCheck}>
+                      {pcBusy ? "Testando..." : "Testar"}
+                    </button>
+                  </Tooltip>
+                  {pcResult && (
+                    <span className={pcResult.reachable ? "badge badge-status-resolved" : "badge badge-status-firing"}>
+                      {pcResult.reachable ? `Acessivel (${pcResult.latency_ms}ms)` : "Inacessivel"}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {REMOTE_ACCESS_TYPES.has(selected.type) && (
+              <div>
+                <div className="panel-eyebrow" style={{ marginBottom: 6 }}>Acesso rapido</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Tooltip label="Baixa um arquivo .rdp pronto pra abrir no cliente de Area de Trabalho Remota">
+                    <button className="logout-btn" disabled={rdpBusy} onClick={handleDownloadRdp}>
+                      {rdpBusy ? "Baixando..." : "Baixar RDP"}
+                    </button>
+                  </Tooltip>
+                  {selected.ip_address && (
+                    <Tooltip label="Copia o comando ssh pra colar no seu terminal">
+                      <button className="logout-btn" onClick={handleCopySsh}>
+                        {sshCopied ? "Copiado!" : "Copiar SSH"}
+                      </button>
+                    </Tooltip>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <div className="panel-eyebrow" style={{ marginBottom: 6 }}>Comandos</div>
+              <Link href={`/dispositivos?asset=${selected.id}`} className="logout-btn" style={{ display: "inline-block" }}>
+                Ver no Dispositivos
+              </Link>
+            </div>
           </div>
         </div>
       )}

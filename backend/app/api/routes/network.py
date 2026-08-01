@@ -27,6 +27,7 @@ class NetworkNodeOut(BaseModel):
     status: AssetStatus
     criticality: Criticality
     sector_id: str | None
+    ip_address: str | None
 
 
 class NetworkLinkOut(BaseModel):
@@ -60,6 +61,7 @@ async def get_network_graph(
             id=str(a.id), name=a.display_name or a.name, type=a.type, layer=a.layer,
             site=a.site, status=a.status, criticality=a.criticality,
             sector_id=str(a.sector_id) if a.sector_id else None,
+            ip_address=a.ip_address,
         )
         for a in assets
     ]

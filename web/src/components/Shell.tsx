@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import {
   LayoutDashboard, MonitorCheck, AlertTriangle, LineChart, Ticket,
   Users, FolderTree, UsersRound, Monitor, ShieldCheck, Layers,
-  Server, Archive, Terminal, MonitorCog, Cpu, Network, KeyRound, Plug,
+  Server, Archive, Terminal, MonitorCog, Network, Plug,
   ShieldAlert, Shield, Bot, BookOpen, ExternalLink, Sun, Moon, LogOut,
   type LucideIcon,
 } from "lucide-react";
@@ -48,12 +48,10 @@ const NAV: { section: string; items: NavEntry[] }[] = [
     section: "Infraestrutura",
     items: [
       { href: "/ativos", label: "Ativos", icon: Server, requires: "cmdb.read" },
-      { href: "/mapa-rede", label: "Mapa de Rede", icon: Network, requires: "cmdb.read" },
-      { href: "/dispositivos", label: "Dispositivos", icon: Cpu, requires: "devices.read" },
+      { href: "/mapa-rede", label: "Hub de Redes", icon: Network, requires: "cmdb.read" },
       { href: "/backup", label: "Backup", icon: Archive, requires: "backup.read" },
       { href: "/linux-toolkit", label: "Linux Ops + Toolkit", icon: Terminal, requires: "linux.read" },
       { href: "/windows-ops", label: "Windows Server Ops", icon: MonitorCog, requires: "winserver.read" },
-      { href: "/hub-acessos", label: "Hub de Acessos", icon: KeyRound, requires: "cmdb.read" },
       { href: "/integracoes", label: "Integracoes", icon: Plug, requires: "integrations.manage" },
     ],
   },
