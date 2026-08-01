@@ -58,29 +58,29 @@ export default function BackupPage() {
     }
   }
 
-  if (loading) return <Shell title="Painel de Backup"><div className="empty">carregando...</div></Shell>;
+  if (loading) return <Shell title="Painel de Backup"><div className="loading">carregando...</div></Shell>;
 
   return (
     <Shell title="Painel de Backup (simulado)">
       {error && <div className="login-error" style={{ marginBottom: 16 }}>{error}</div>}
 
       {kpis && (
-        <div style={{ display: "flex", gap: 16, marginBottom: 24 }}>
-          <div style={{ background: "var(--panel)", padding: 16, borderRadius: 8, border: "1px solid var(--border)", flex: 1 }}>
-            <div style={{ fontSize: 12, color: "var(--fg-2)" }}>Total de jobs</div>
-            <div style={{ fontSize: 28, fontWeight: 700 }}>{kpis.total_jobs}</div>
+        <div className="stat-row">
+          <div className="stat-card">
+            <div className="stat-label">Total de jobs</div>
+            <div className="stat-value">{kpis.total_jobs}</div>
           </div>
-          <div style={{ background: "var(--panel)", padding: 16, borderRadius: 8, border: "1px solid var(--border)", flex: 1 }}>
-            <div style={{ fontSize: 12, color: "var(--fg-2)" }}>OK</div>
-            <div style={{ fontSize: 28, fontWeight: 700, color: "#22c55e" }}>{kpis.jobs_ok}</div>
+          <div className="stat-card">
+            <div className="stat-label">OK</div>
+            <div className="stat-value ok">{kpis.jobs_ok}</div>
           </div>
-          <div style={{ background: "var(--panel)", padding: 16, borderRadius: 8, border: "1px solid var(--border)", flex: 1 }}>
-            <div style={{ fontSize: 12, color: "var(--fg-2)" }}>Falharam</div>
-            <div style={{ fontSize: 28, fontWeight: 700, color: "#ef4444" }}>{kpis.jobs_failed}</div>
+          <div className="stat-card">
+            <div className="stat-label">Falharam</div>
+            <div className="stat-value critical">{kpis.jobs_failed}</div>
           </div>
-          <div style={{ background: "var(--panel)", padding: 16, borderRadius: 8, border: "1px solid var(--border)", flex: 1 }}>
-            <div style={{ fontSize: 12, color: "var(--fg-2)" }}>RPO excedido</div>
-            <div style={{ fontSize: 28, fontWeight: 700, color: "#f59e0b" }}>{kpis.jobs_rpo_exceeded}</div>
+          <div className="stat-card">
+            <div className="stat-label">RPO excedido</div>
+            <div className="stat-value warn">{kpis.jobs_rpo_exceeded}</div>
           </div>
         </div>
       )}
@@ -98,22 +98,24 @@ export default function BackupPage() {
           </tr>
         </thead>
         <tbody>
-          {jobs.map((j) => (
+          {jobs.length === 0 ? (
+            <tr><td colSpan={7} className="empty">Nenhum job de backup encontrado.</td></tr>
+          ) : jobs.map((j) => (
             <React.Fragment key={j.id}>
-              <tr onClick={() => handleToggle(j)} style={{ cursor: "pointer" }}>
+              <tr onClick={() => handleToggle(j)}>
                 <td className="alert-name">{j.name}</td>
-                <td style={{ fontSize: 12 }}>{j.source}</td>
-                <td style={{ fontSize: 12 }}>{j.target}</td>
-                <td style={{ fontSize: 12, color: "var(--fg-2)" }}>{j.schedule}</td>
+                <td className="text-sm">{j.source}</td>
+                <td className="text-sm">{j.target}</td>
+                <td className="text-sm text-muted">{j.schedule}</td>
                 <td><span className={statusColor(j)}>{j.last_status}{j.rpo_exceeded ? " (RPO)" : ""}</span></td>
-                <td style={{ fontSize: 12 }}>{j.actual_rpo_hours ?? "-"}h / {j.rpo_target_hours}h</td>
+                <td className="text-sm">{j.actual_rpo_hours ?? "-"}h / {j.rpo_target_hours}h</td>
                 <td>{j.restore_point_count}</td>
               </tr>
               {openJobId === j.id && (
                 <tr>
-                  <td colSpan={7} style={{ background: "var(--panel)", padding: 12 }}>
+                  <td colSpan={7} style={{ background: "var(--bg-2)", padding: 12 }}>
                     {pointsLoading ? (
-                      <span>carregando...</span>
+                      <span className="loading">carregando...</span>
                     ) : (
                       <table style={{ width: "100%" }}>
                         <thead>
@@ -134,7 +136,7 @@ export default function BackupPage() {
                                   {p.status}
                                 </span>
                               </td>
-                              <td style={{ fontSize: 12, color: "var(--fg-2)" }}>{fmtDate(p.expires_at)}</td>
+                              <td className="text-sm text-muted">{fmtDate(p.expires_at)}</td>
                             </tr>
                           ))}
                         </tbody>

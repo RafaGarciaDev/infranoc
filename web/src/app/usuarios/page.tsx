@@ -13,12 +13,12 @@ function initials(name: string) {
 
 function statusChip(u: ADUser) {
   if (u.locked) {
-    return <span className="badge" style={{ background: "#dc2626", color: "#fff" }}>bloqueado</span>;
+    return <span className="badge badge-status-firing">bloqueado</span>;
   }
   if (u.disabled) {
-    return <span className="badge" style={{ background: "#6b7280", color: "#fff" }}>desabilitado</span>;
+    return <span className="badge badge-cat">desabilitado</span>;
   }
-  return <span className="badge" style={{ background: "#16a34a", color: "#fff" }}>ativo</span>;
+  return <span className="badge badge-status-resolved">ativo</span>;
 }
 
 function UsuariosInner() {
@@ -66,18 +66,18 @@ function UsuariosInner() {
   return (
     <Shell title="Usuarios (AD)">
       {summary && (
-        <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-          <div className="cmdb-table" style={{ padding: 12, flex: 1 }}>
-            <div style={{ fontSize: 12, color: "var(--fg-2)" }}>Total</div>
-            <div style={{ fontSize: 22, fontWeight: 600 }}>{summary.total}</div>
+        <div className="stat-row" style={{ marginBottom: 16 }}>
+          <div className="stat-card">
+            <div className="stat-label">Total</div>
+            <div className="stat-value">{summary.total}</div>
           </div>
-          <div className="cmdb-table" style={{ padding: 12, flex: 1 }}>
-            <div style={{ fontSize: 12, color: "var(--fg-2)" }}>Bloqueados</div>
-            <div style={{ fontSize: 22, fontWeight: 600, color: "#dc2626" }}>{summary.locked}</div>
+          <div className="stat-card">
+            <div className="stat-label">Bloqueados</div>
+            <div className="stat-value critical">{summary.locked}</div>
           </div>
-          <div className="cmdb-table" style={{ padding: 12, flex: 1 }}>
-            <div style={{ fontSize: 12, color: "var(--fg-2)" }}>Desabilitados</div>
-            <div style={{ fontSize: 22, fontWeight: 600, color: "#6b7280" }}>{summary.disabled}</div>
+          <div className="stat-card">
+            <div className="stat-label">Desabilitados</div>
+            <div className="stat-value">{summary.disabled}</div>
           </div>
         </div>
       )}
@@ -99,10 +99,10 @@ function UsuariosInner() {
       </div>
 
       {err && (
-        <div style={{ border: "1px solid rgba(220,38,38,.4)", background: "rgba(220,38,38,.08)", borderRadius: 8, padding: "14px 16px", marginBottom: 16 }}>
-          <div style={{ fontWeight: 600, color: "#f87171", marginBottom: 4 }}>Nao foi possivel carregar os usuarios do AD</div>
-          <div style={{ fontSize: 13, color: "var(--fg-2)" }}>{err}</div>
-          <div style={{ fontSize: 12, color: "var(--fg-2)", marginTop: 6 }}>Verifique se o controlador de dominio esta acessivel e tente novamente.</div>
+        <div className="error-panel">
+          <div className="error-panel-title">Nao foi possivel carregar os usuarios do AD</div>
+          <div className="text-sm text-muted">{err}</div>
+          <div className="text-xs text-muted" style={{ marginTop: 6 }}>Verifique se o controlador de dominio esta acessivel e tente novamente.</div>
         </div>
       )}
 
@@ -137,7 +137,7 @@ function UsuariosInner() {
           <tbody>
             {users.length === 0 && !err && (
               <tr>
-                <td colSpan={5} style={{ textAlign: "center", padding: 32, color: "var(--fg-2)" }}>
+                <td colSpan={5} className="empty">
                   Nenhum usuario encontrado{debouncedSearch ? ` para "${debouncedSearch}"` : ""}.
                 </td>
               </tr>

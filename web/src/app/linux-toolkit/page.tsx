@@ -90,29 +90,28 @@ export default function LinuxToolkitPage() {
     }
   }
 
-  if (loading) return <Shell title="Linux Ops + Toolkit"><div className="empty">carregando...</div></Shell>;
+  if (loading) return <Shell title="Linux Ops + Toolkit"><div className="loading">carregando...</div></Shell>;
 
   return (
     <Shell title="Linux Ops + Toolkit de Diagnostico">
       {error && <div className="login-error" style={{ marginBottom: 16 }}>{error}</div>}
 
-      <h2 style={{ marginBottom: 8 }}>Snapshot (MES01)</h2>
+      <h2 className="section-title">Snapshot (MES01)</h2>
       {snapshot && (
-        <pre style={{
-          whiteSpace: "pre-wrap", background: "var(--panel)", padding: 12, borderRadius: 8,
-          border: "1px solid var(--border)", fontSize: 12, marginBottom: 24,
-        }}>
+        <pre className="code-block" style={{ marginBottom: 24 }}>
 {snapshot.uptime}
 {"\n"}
 {snapshot.who}
         </pre>
       )}
 
-      <h2 style={{ marginBottom: 8 }}>Disco</h2>
+      <h2 className="section-title">Disco</h2>
       <table className="alerts-table" style={{ marginBottom: 24 }}>
         <thead><tr><th>Mount</th><th>Tamanho</th><th>Usado</th><th>Livre</th><th>%</th></tr></thead>
         <tbody>
-          {disk.map((d) => (
+          {disk.length === 0 ? (
+            <tr><td colSpan={5} className="empty">Nenhuma particao encontrada.</td></tr>
+          ) : disk.map((d) => (
             <tr key={d.mount}>
               <td className="alert-name">{d.mount}</td>
               <td>{d.size}</td><td>{d.used}</td><td>{d.avail}</td>
@@ -122,20 +121,22 @@ export default function LinuxToolkitPage() {
         </tbody>
       </table>
 
-      <h2 style={{ marginBottom: 8 }}>Usuarios locais ({users.length})</h2>
+      <h2 className="section-title">Usuarios locais ({users.length})</h2>
       <table className="alerts-table" style={{ marginBottom: 24 }}>
         <thead><tr><th>Usuario</th><th>UID</th><th>Home</th><th>Shell</th></tr></thead>
         <tbody>
-          {users.map((u) => (
+          {users.length === 0 ? (
+            <tr><td colSpan={4} className="empty">Nenhum usuario local encontrado.</td></tr>
+          ) : users.map((u) => (
             <tr key={u.username}>
               <td className="alert-name">{u.username}</td>
-              <td>{u.uid}</td><td style={{ fontSize: 12 }}>{u.home}</td><td style={{ fontSize: 12 }}>{u.shell}</td>
+              <td>{u.uid}</td><td className="text-sm">{u.home}</td><td className="text-sm">{u.shell}</td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      <h2 style={{ marginBottom: 8 }}>Servicos systemd</h2>
+      <h2 className="section-title">Servicos systemd</h2>
       <div className="alerts-toolbar">
         <input
           className="field-select"
@@ -148,11 +149,13 @@ export default function LinuxToolkitPage() {
       <table className="alerts-table" style={{ marginBottom: 24 }}>
         <thead><tr><th>Unidade</th><th>Status</th><th>Descricao</th><th>Acoes</th></tr></thead>
         <tbody>
-          {units.map((u) => (
+          {units.length === 0 ? (
+            <tr><td colSpan={4} className="empty">Nenhum servico encontrado.</td></tr>
+          ) : units.map((u) => (
             <tr key={u.unit}>
-              <td className="alert-name" style={{ fontSize: 12 }}>{u.unit}</td>
+              <td className="alert-name text-sm">{u.unit}</td>
               <td><span className={u.active === "active" ? "badge badge-status-resolved" : "badge badge-status-firing"}>{u.active}</span></td>
-              <td style={{ fontSize: 12, color: "var(--fg-2)" }}>{u.description}</td>
+              <td className="text-sm text-muted">{u.description}</td>
               <td>
                 <div style={{ display: "flex", gap: 6 }}>
                   <button className="logout-btn" disabled={busyUnit === u.unit} onClick={() => handleUnitAction(u.unit, "restart")}>Restart</button>
@@ -165,7 +168,7 @@ export default function LinuxToolkitPage() {
         </tbody>
       </table>
 
-      <h2 style={{ marginBottom: 8 }}>Toolkit - Port Check</h2>
+      <h2 className="section-title">Toolkit - Port Check</h2>
       <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginBottom: 12 }}>
         <label className="field">
           <span className="field-label">Host</span>
@@ -187,15 +190,12 @@ export default function LinuxToolkitPage() {
         </div>
       )}
 
-      <h2 style={{ marginBottom: 8 }}>Toolkit - Portas em escuta (ss -tulpn)</h2>
+      <h2 className="section-title">Toolkit - Portas em escuta (ss -tulpn)</h2>
       <button className="logout-btn" disabled={ssBusy} onClick={handleSs} style={{ marginBottom: 12 }}>
         {ssBusy ? "Executando..." : "Executar"}
       </button>
       {ssOutput && (
-        <pre style={{
-          whiteSpace: "pre-wrap", background: "var(--panel)", padding: 12, borderRadius: 8,
-          border: "1px solid var(--border)", fontSize: 11, overflowX: "auto",
-        }}>
+        <pre className="code-block text-xs">
           {ssOutput}
         </pre>
       )}
