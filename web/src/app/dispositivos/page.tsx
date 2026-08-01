@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Shell from "@/components/Shell";
 import {
   listDeviceAssets, listDeviceCommands, executeDeviceCommand, listDeviceExecutions,
@@ -17,7 +18,10 @@ function statusBadgeClass(status: string): string {
   return "badge badge-cat";
 }
 
-export default function DispositivosPage() {
+function DispositivosContent() {
+  const searchParams = useSearchParams();
+  const assetIdFromUrl = searchParams.get("asset");
+
   const [assets, setAssets] = useState<DeviceAsset[]>([]);
   const [selected, setSelected] = useState<DeviceAsset | null>(null);
   const [commands, setCommands] = useState<DeviceCommandItem[]>([]);
@@ -57,6 +61,12 @@ export default function DispositivosPage() {
       setError(e instanceof Error ? e.message : "Erro ao carregar detalhes do ativo.");
     }
   }, []);
+
+  useEffect(() => {
+    if (!assetIdFromUrl || loading) return;
+    const found = assets.find((a) => a.asset_id === assetIdFromUrl);
+    if (found) loadAssetDetail(found);
+  }, [assetIdFromUrl, loading, assets, loadAssetDetail]);
 
   async function handleExecute(cmd: DeviceCommandItem) {
     if (!selected) return;
@@ -182,5 +192,13 @@ export default function DispositivosPage() {
         </div>
       </div>
     </Shell>
+  );
+}
+
+export default function DispositivosPage() {
+  return (
+    <Suspense fallback={null}>
+      <DispositivosContent />
+    </Suspense>
   );
 }

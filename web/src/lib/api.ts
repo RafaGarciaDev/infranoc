@@ -1166,6 +1166,7 @@ export type NetworkNode = {
   status: string;
   criticality: "Low" | "Medium" | "High" | "Critical";
   sector_id: string | null;
+  ip_address: string | null;
 };
 export type NetworkLinkItem = {
   id: string;
