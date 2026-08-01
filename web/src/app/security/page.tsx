@@ -9,9 +9,10 @@ function fmtDate(iso: string): string {
 }
 
 function levelBadge(level: number): string {
-  if (level >= 12) return "badge badge-status-firing";
-  if (level >= 8) return "badge badge-cat";
-  return "badge badge-status-resolved";
+  if (level >= 12) return "badge badge-sev-critical";
+  if (level >= 8) return "badge badge-sev-high";
+  if (level >= 4) return "badge badge-sev-warning";
+  return "badge badge-sev-info";
 }
 
 export default function SecurityPage() {
