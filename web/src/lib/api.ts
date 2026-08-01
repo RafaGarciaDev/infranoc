@@ -905,6 +905,56 @@ export async function toolkitSs(): Promise<string> {
   return data.output as string;
 }
 
+/* Windows Server Ops (Fase 9n) */
+export type WindowsSnapshot = { caption: string; last_boot: string; hostname: string; sessions: RdpSession[] };
+export async function getWindowsSnapshot(): Promise<WindowsSnapshot> {
+  const res = await apiFetch(`/windows/snapshot`);
+  if (!res.ok) throw new Error(`Falha ao buscar snapshot (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export type WindowsUser = { name: string; enabled: boolean };
+export async function listWindowsUsers(): Promise<WindowsUser[]> {
+  const res = await apiFetch(`/windows/users`);
+  if (!res.ok) throw new Error(`Falha ao listar usuarios (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export type WindowsService = { name: string; display_name: string; status: string; start_type: string };
+export async function listWindowsServices(q?: string): Promise<WindowsService[]> {
+  const qs = q ? `?q=${encodeURIComponent(q)}` : "";
+  const res = await apiFetch(`/windows/services${qs}`);
+  if (!res.ok) throw new Error(`Falha ao listar servicos (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function windowsServiceAction(name: string, action: "start" | "stop" | "restart"): Promise<void> {
+  const res = await apiFetch(`/windows/services/action`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, action }),
+  });
+  if (!res.ok) {
+    let msg = `Falha na acao (HTTP ${res.status}).`;
+    try { const data = await res.json(); if (data?.detail) msg = data.detail; } catch {}
+    throw new Error(msg);
+  }
+}
+
+export type WindowsDiskUsage = { drive: string; size_gb: number; free_gb: number; percent_used: number };
+export async function getWindowsDisk(): Promise<WindowsDiskUsage[]> {
+  const res = await apiFetch(`/windows/disk`);
+  if (!res.ok) throw new Error(`Falha ao buscar disco (HTTP ${res.status}).`);
+  return res.json();
+}
+
+export async function windowsNetstat(): Promise<string> {
+  const res = await apiFetch(`/windows/netstat`);
+  if (!res.ok) throw new Error(`Falha ao executar netstat (HTTP ${res.status}).`);
+  const data = await res.json();
+  return data.output as string;
+}
+
 
 /* Painel de Backup (Fase 9f) */
 export type BackupJob = {
