@@ -13,7 +13,7 @@
 
 ## O que é isto
 
-O **InfraNOC** é um Centro de Operações de Rede (NOC) completo, construído do zero para monitorar a infraestrutura fictícia da **Laticínios Vale Verde S/A**: 333 ativos entre servidores, CLPs industriais, câmaras frias, switches, sensores, câmeras e mais — combinando observabilidade de TI e OT, gestão de identidade via Active Directory real, um CMDB completo, integração com ferramentas de ITSM self-hosted e um assistente de IA que roda **100% local**, sem depender de nenhuma API paga.
+O **InfraNOC** é um Centro de Operações de Rede (NOC) completo, construído do zero para monitorar a infraestrutura fictícia da **Laticínios Vale Verde S/A**: 646 ativos entre servidores, CLPs industriais, câmaras frias, switches, sensores, câmeras e mais — combinando observabilidade de TI e OT, gestão de identidade via Active Directory real, um CMDB completo, console de dispositivos com comandos reais via SNMP, operações reais em servidores Windows via WinRM, integração com ferramentas de ITSM self-hosted e um assistente de IA que roda **100% local**, sem depender de nenhuma API paga.
 
 Não é um CRUD de portfólio. É uma tentativa de reproduzir, em escala de laboratório, os mesmos problemas (e as mesmas soluções) que um NOC real enfrenta todos os dias.
 
@@ -31,7 +31,7 @@ Pergunte em linguagem natural sobre a infraestrutura ("O que fazer quando a câm
 
 ## Mais telas
 
-| Observabilidade (Grafana embutido) | CMDB (603 ativos) |
+| Observabilidade (Grafana embutido) | CMDB (646 ativos, simulado) |
 |---|---|
 | ![Observabilidade](docs/screenshots/02-grafana-observabilidade.png) | ![CMDB](docs/screenshots/03-cmdb-ativos.png) |
 
@@ -42,6 +42,18 @@ Pergunte em linguagem natural sobre a infraestrutura ("O que fazer quando a câm
 | Integração com Peppermint (ITSM) | Painel nativo do Peppermint |
 |---|---|
 | ![Chamados](docs/screenshots/06-chamados-peppermint.png) | ![Peppermint](docs/screenshots/06b-peppermint-painel-nativo.png) |
+
+## Gestão real de rede e servidores
+
+Além da simulação de infraestrutura, o InfraNOC também fala com equipamentos e servidores de verdade: console SNMP com comandos GET/SET reais em dispositivos de rede, operações reais via WinRM em servidores Windows, e um Hub de Redes que consolida mapa de rede, inventário de dispositivos e acessos num só lugar.
+
+| Console de Dispositivos (SNMP real GET/SET) | Windows Server Ops (WinRM real) |
+|---|---|
+| ![Dispositivos SNMP](docs/screenshots/09-dispositivos-snmp.png) | ![Windows Server Ops](docs/screenshots/10-windows-server-ops.png) |
+
+| Hub de Redes (mapa + dispositivos + acessos) | Segurança / SIEM (MITRE ATT&CK, simulado) |
+|---|---|
+| ![Hub de Redes](docs/screenshots/11-hub-de-redes.png) | ![Segurança SIEM](docs/screenshots/12-seguranca-siem.png) |
 
 ## Arquitetura
 
@@ -92,6 +104,7 @@ Mais diagramas em [`docs/diagrams/`](docs/diagrams/): [C4 Contexto](docs/diagram
 | Observabilidade | Prometheus, Loki, Grafana, AlertManager |
 | IA | Ollama local (qwen3, embeddings intfloat/multilingual-e5-small) — RAG + tool calling, sem API externa |
 | Diretório | Active Directory real (`ldap3` para leitura/escrita, `pypsrp`/WinRM para reset de senha) |
+| Rede e servidores | `pysnmp` (SNMP real GET/SET em dispositivos), `pypsrp`/WinRM (Windows Server Ops), `asyncssh` (Linux Ops) |
 | Integrações | Peppermint (ITSM self-hosted), Vikunja (kanban self-hosted) |
 | Infra | Docker, Docker Compose, Caddy (HTTPS), VMware Workstation |
 
@@ -99,7 +112,7 @@ Mais diagramas em [`docs/diagrams/`](docs/diagrams/): [C4 Contexto](docs/diagram
 
 1. Autenticação JWT + RBAC + multi-tenancy
 2. Observabilidade de TI e OT (Prometheus/Loki/Grafana/AlertManager)
-3. CMDB com 333 ativos e ciclo de vida
+3. CMDB com 646 ativos e ciclo de vida (simulado)
 4. Dashboard NOC (mapa da planta, OEE, WebSocket em tempo real)
 5. Alertas com impacto de negócio e acknowledge
 6. Gestão de Active Directory (250 usuários reais — leitura, escrita, reset de senha, auditoria)
@@ -108,6 +121,12 @@ Mais diagramas em [`docs/diagrams/`](docs/diagrams/): [C4 Contexto](docs/diagram
 9. Assistente de IA com RAG (pgvector) e tool calling — 100% local via Ollama
 10. Auditoria de todas as ações sensíveis
 11. Modo TV / fullscreen para exibição em NOC físico
+12. Console de Dispositivos com comandos reais via SNMP (GET/SET) em equipamentos de rede
+13. Windows Server Ops via WinRM real (serviços, processos, disco, sessões RDP)
+14. Hub de Redes — consolida mapa de rede, inventário de dispositivos e hub de acessos
+15. Painel de Backup (simulado — jobs, RPO, restore points)
+16. Segurança / SIEM com MITRE ATT&CK (simulado — eventos, técnicas, severidade)
+17. VPN (simulado — peers, handshake)
 
 ## Como rodar localmente
 
@@ -143,19 +162,20 @@ Registro das decisões técnicas mais relevantes em [`docs/adrs/`](docs/adrs/), 
 
 **Feito:**
 - [x] Autenticação, RBAC, multi-tenancy
-- [x] Observabilidade TI + OT com 333 ativos
+- [x] Observabilidade TI + OT com 646 ativos
 - [x] CMDB completo
 - [x] Dashboard NOC em tempo real (WebSocket)
 - [x] Gestão de Active Directory real (250 usuários)
 - [x] Integração com Peppermint e Vikunja
 - [x] Assistente de IA local (RAG + tool calling)
+- [x] Console de Dispositivos com comandos reais via SNMP (GET/SET)
+- [x] Windows Server Ops via WinRM real
+- [x] Hub de Redes (mapa de rede + dispositivos + acessos consolidados)
+- [x] Backup, Segurança/SIEM (MITRE ATT&CK) e VPN — simulados
+- [x] Modernização visual (tokens de design, cabeçalho de página, sidebar)
 
 **Próximos passos:**
-- [ ] Backup (Veeam)
-- [ ] Segurança/SIEM (Wazuh + MITRE ATT&CK)
-- [ ] Automação de rede (Mikrotik/Ubiquiti)
 - [ ] Help Desk ampliado
-- [ ] VPN + gestão de usuários remotos
 - [ ] Deploy público com HTTPS
 
 ## Autor
