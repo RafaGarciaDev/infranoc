@@ -58,26 +58,73 @@ TYPE_PROTOCOL: dict[AssetType, tuple[DeviceProtocol, int | None]] = {
     AssetType.Other: (DeviceProtocol.HTTPAPI, None),
 }
 
-# Catalogo curado de comandos (asset_type, protocol, name, kind, requires_permission).
+# Catalogo curado de comandos (asset_type, protocol, name, kind,
+# requires_permission, oid, value_type). "oid" so se aplica a comandos SNMP
+# com execucao real disponivel (ver _try_run_real em routes/devices.py);
+# fica None pra SSH/WinRM/HTTPAPI/Modbus (sem mudanca de postura pra esses
+# protocolos, ver ADR-006) e pra "restart"/reboot total (sem OID padrao
+# seguro no IF-MIB - permanece sempre simulado, ver ADR-007).
 # Nao cobre "todos os comandos possiveis" de todo fabricante - so um conjunto
-# inicial representativo, igual foi feito com as 12 regras do SIEM (ADR-004).
-COMMANDS: list[tuple[AssetType, DeviceProtocol, str, DeviceCommandKind, str]] = [
-    (AssetType.Server, DeviceProtocol.SSH, "get_status", DeviceCommandKind.Read, "devices.read"),
-    (AssetType.Server, DeviceProtocol.SSH, "restart_service", DeviceCommandKind.Action, "devices.action"),
-    (AssetType.Server, DeviceProtocol.WinRM, "get_status", DeviceCommandKind.Read, "devices.read"),
-    (AssetType.Server, DeviceProtocol.WinRM, "restart_service", DeviceCommandKind.Action, "devices.action"),
-    (AssetType.NetworkSwitch, DeviceProtocol.SNMP, "get_status", DeviceCommandKind.Read, "devices.read"),
-    (AssetType.NetworkSwitch, DeviceProtocol.SNMP, "restart", DeviceCommandKind.Action, "devices.action"),
-    (AssetType.Router, DeviceProtocol.SNMP, "get_status", DeviceCommandKind.Read, "devices.read"),
-    (AssetType.Router, DeviceProtocol.SNMP, "restart", DeviceCommandKind.Action, "devices.action"),
-    (AssetType.AccessPoint, DeviceProtocol.SNMP, "get_status", DeviceCommandKind.Read, "devices.read"),
-    (AssetType.AccessPoint, DeviceProtocol.SNMP, "restart", DeviceCommandKind.Action, "devices.action"),
-    (AssetType.Printer, DeviceProtocol.SNMP, "get_toner_level", DeviceCommandKind.Read, "devices.read"),
-    (AssetType.Printer, DeviceProtocol.SNMP, "restart", DeviceCommandKind.Action, "devices.action"),
-    (AssetType.UPS, DeviceProtocol.SNMP, "get_battery_level", DeviceCommandKind.Read, "devices.read"),
-    (AssetType.Camera, DeviceProtocol.HTTPAPI, "get_status", DeviceCommandKind.Read, "devices.read"),
-    (AssetType.Camera, DeviceProtocol.HTTPAPI, "restart", DeviceCommandKind.Action, "devices.action"),
-    (AssetType.PLC, DeviceProtocol.Modbus, "get_status", DeviceCommandKind.Read, "devices.read"),
+# curado representativo, igual foi feito com as 12 regras do SIEM (ADR-004).
+COMMANDS: list[tuple[AssetType, DeviceProtocol, str, DeviceCommandKind, str, str | None, str | None]] = [
+    (AssetType.Server, DeviceProtocol.SSH, "get_status", DeviceCommandKind.Read, "devices.read", None, None),
+    (AssetType.Server, DeviceProtocol.SSH, "restart_service", DeviceCommandKind.Action, "devices.action", None, None),
+    (AssetType.Server, DeviceProtocol.WinRM, "get_status", DeviceCommandKind.Read, "devices.read", None, None),
+    (AssetType.Server, DeviceProtocol.WinRM, "restart_service", DeviceCommandKind.Action, "devices.action", None, None),
+
+    # --- NetworkSwitch (SNMP) ---
+    (AssetType.NetworkSwitch, DeviceProtocol.SNMP, "get_status", DeviceCommandKind.Read, "devices.read",
+     "1.3.6.1.2.1.1.3.0", None),                        # sysUpTime.0
+    (AssetType.NetworkSwitch, DeviceProtocol.SNMP, "get_uptime", DeviceCommandKind.Read, "devices.read",
+     "1.3.6.1.2.1.1.3.0", None),                        # sysUpTime.0
+    (AssetType.NetworkSwitch, DeviceProtocol.SNMP, "get_interface_status", DeviceCommandKind.Read, "devices.read",
+     "1.3.6.1.2.1.2.2.1.8.1", None),                     # ifOperStatus.1 (IF-MIB)
+    (AssetType.NetworkSwitch, DeviceProtocol.SNMP, "restart", DeviceCommandKind.Action, "devices.action", None, None),
+    # Exemplo real de SET (ADR-007): liga/desliga 1 porta (ifAdminStatus: 1=up, 2=down),
+    # nao o equipamento inteiro - unico comando de Acao com OID cadastrado no catalogo.
+    (AssetType.NetworkSwitch, DeviceProtocol.SNMP, "set_port_admin_status", DeviceCommandKind.Action, "devices.action",
+     "1.3.6.1.2.1.2.2.1.7.1", "int"),                    # ifAdminStatus.1
+
+    # --- Router (SNMP) ---
+    (AssetType.Router, DeviceProtocol.SNMP, "get_status", DeviceCommandKind.Read, "devices.read",
+     "1.3.6.1.2.1.1.3.0", None),
+    (AssetType.Router, DeviceProtocol.SNMP, "get_uptime", DeviceCommandKind.Read, "devices.read",
+     "1.3.6.1.2.1.1.3.0", None),
+    (AssetType.Router, DeviceProtocol.SNMP, "get_interface_status", DeviceCommandKind.Read, "devices.read",
+     "1.3.6.1.2.1.2.2.1.8.1", None),
+    (AssetType.Router, DeviceProtocol.SNMP, "restart", DeviceCommandKind.Action, "devices.action", None, None),
+
+    # --- Firewall (SNMP) ---
+    (AssetType.Firewall, DeviceProtocol.SNMP, "get_status", DeviceCommandKind.Read, "devices.read",
+     "1.3.6.1.2.1.1.3.0", None),
+    (AssetType.Firewall, DeviceProtocol.SNMP, "get_interface_status", DeviceCommandKind.Read, "devices.read",
+     "1.3.6.1.2.1.2.2.1.8.1", None),
+
+    # --- AccessPoint (SNMP) ---
+    (AssetType.AccessPoint, DeviceProtocol.SNMP, "get_status", DeviceCommandKind.Read, "devices.read",
+     "1.3.6.1.2.1.1.3.0", None),
+    (AssetType.AccessPoint, DeviceProtocol.SNMP, "restart", DeviceCommandKind.Action, "devices.action", None, None),
+
+    # --- Printer (SNMP, RFC 3805 - Printer-MIB) ---
+    (AssetType.Printer, DeviceProtocol.SNMP, "get_toner_level", DeviceCommandKind.Read, "devices.read",
+     "1.3.6.1.2.1.43.11.1.1.9.1.1", None),               # prtMarkerSuppliesLevel.1.1
+    (AssetType.Printer, DeviceProtocol.SNMP, "get_page_count", DeviceCommandKind.Read, "devices.read",
+     "1.3.6.1.2.1.43.10.2.1.4.1.1", None),                # prtMarkerLifeCount.1.1
+    (AssetType.Printer, DeviceProtocol.SNMP, "restart", DeviceCommandKind.Action, "devices.action", None, None),
+
+    # --- UPS (SNMP, RFC 1628 - UPS-MIB) ---
+    (AssetType.UPS, DeviceProtocol.SNMP, "get_battery_level", DeviceCommandKind.Read, "devices.read",
+     "1.3.6.1.2.1.33.1.2.4.0", None),                     # upsEstimatedChargeRemaining.0
+    (AssetType.UPS, DeviceProtocol.SNMP, "get_battery_status", DeviceCommandKind.Read, "devices.read",
+     "1.3.6.1.2.1.33.1.2.1.0", None),                     # upsBatteryStatus.0
+    (AssetType.UPS, DeviceProtocol.SNMP, "get_load_percent", DeviceCommandKind.Read, "devices.read",
+     "1.3.6.1.2.1.33.1.4.4.1.5.1", None),                 # upsOutputPercentLoad.1
+    (AssetType.UPS, DeviceProtocol.SNMP, "get_runtime_remaining", DeviceCommandKind.Read, "devices.read",
+     "1.3.6.1.2.1.33.1.2.3.0", None),                     # upsEstimatedMinutesRemaining.0
+
+    (AssetType.Camera, DeviceProtocol.HTTPAPI, "get_status", DeviceCommandKind.Read, "devices.read", None, None),
+    (AssetType.Camera, DeviceProtocol.HTTPAPI, "restart", DeviceCommandKind.Action, "devices.action", None, None),
+    (AssetType.PLC, DeviceProtocol.Modbus, "get_status", DeviceCommandKind.Read, "devices.read", None, None),
 ]
 
 
@@ -101,7 +148,7 @@ async def seed_devices(tenant_id: uuid.UUID) -> tuple[int, int]:
             ).all()
         )
         cmd_count = 0
-        for asset_type, protocol, name, kind, perm in COMMANDS:
+        for asset_type, protocol, name, kind, perm, oid, value_type in COMMANDS:
             key = (asset_type.value, protocol, name)
             if key in existing_cmd_keys:
                 continue
@@ -111,6 +158,8 @@ async def seed_devices(tenant_id: uuid.UUID) -> tuple[int, int]:
                 name=name,
                 kind=kind,
                 requires_permission=perm,
+                oid=oid,
+                value_type=value_type,
             ))
             cmd_count += 1
 

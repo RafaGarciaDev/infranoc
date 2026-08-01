@@ -4,9 +4,14 @@ Para os ~644 ativos simulados do CMDB, os comandos sao simulados (ver
 ADR-006) - mesma filosofia do ADR-003/004/005. Para os 2 ativos reais do
 lab (PSA-TI-DC01, PSA-OT-MES01), o comando "get_status" e genuinamente
 real, reaproveitando o SshClient (9d) e credenciais WinRM (Fase 5).
-Comandos de acao (kind="action") permanecem simulados mesmo nos 2 ativos
-reais nesta primeira versao - ver ADR-006 para o motivo (evitar acao
-destrutiva na infra real do lab sem uma etapa de revisao dedicada).
+
+SNMP (ver ADR-007) estende isso: qualquer comando Read com "oid" cadastrado
+no catalogo roda de verdade quando o perfil e is_real=True, nao so
+"get_status" - reaproveitando o SnmpClient. Comandos de acao (kind="action")
+continuam simulados por padrao para todos os protocolos (ADR-006); a unica
+excecao e SNMP SET quando uma trava dupla e satisfeita (is_real +
+allow_real_snmp_set no perfil, + permissao devices.snmp.set no operador -
+ver _try_run_real).
 """
 from __future__ import annotations
 
@@ -29,10 +34,12 @@ from app.domain.models import (
     Asset,
     DeviceCommand,
     DeviceCommandExecution,
+    DeviceCommandKind,
     DeviceCommandStatus,
     DeviceProtocol,
     DeviceProtocolProfile,
 )
+from app.infrastructure.snmp_client import SnmpClient
 from app.infrastructure.ssh_client import SshClient
 
 router = APIRouter(prefix="/devices", tags=["devices"])
@@ -45,6 +52,7 @@ class DeviceAssetOut(BaseModel):
     protocol: str
     is_real: bool
     port: int | None
+    allow_real_snmp_set: bool
 
 
 @router.get(
@@ -75,6 +83,7 @@ async def list_device_assets(
             protocol=profile.protocol.value,
             is_real=profile.is_real,
             port=profile.port,
+            allow_real_snmp_set=profile.allow_real_snmp_set,
         )
         for profile, asset in rows
     ]
@@ -85,6 +94,8 @@ class DeviceCommandOut(BaseModel):
     name: str
     kind: str
     requires_permission: str
+    oid: str | None
+    value_type: str | None
 
 
 @router.get(
@@ -123,7 +134,12 @@ async def list_asset_commands(
     ).scalars().all()
     return [
         DeviceCommandOut(
-            id=str(c.id), name=c.name, kind=c.kind.value, requires_permission=c.requires_permission
+            id=str(c.id),
+            name=c.name,
+            kind=c.kind.value,
+            requires_permission=c.requires_permission,
+            oid=c.oid,
+            value_type=c.value_type,
         )
         for c in commands
     ]
@@ -171,12 +187,77 @@ async def _run_real_get_status(protocol: DeviceProtocol) -> str:
     raise RuntimeError(f"get_status real nao implementado para protocolo {protocol}")
 
 
+async def _run_real_snmp_get(profile: DeviceProtocolProfile, asset: Asset, command: DeviceCommand) -> str:
+    """Executa um GET SNMP de verdade, usando o OID cadastrado no catalogo."""
+    if not command.oid:
+        raise RuntimeError(f"Comando '{command.name}' nao tem OID cadastrado - GET real indisponivel")
+    if not asset.ip_address:
+        raise RuntimeError(f"Ativo '{asset.name}' nao tem ip_address cadastrado no CMDB")
+    client = SnmpClient(host=asset.ip_address, port=profile.port or 161)
+    return await client.get(command.oid)
+
+
+async def _run_real_snmp_set(
+    profile: DeviceProtocolProfile, asset: Asset, command: DeviceCommand, value: str | None,
+) -> str:
+    """Executa um SET SNMP de verdade. So e chamada quando a trava dupla do
+    ADR-007 ja foi satisfeita pelo chamador (is_real + allow_real_snmp_set +
+    permissao devices.snmp.set)."""
+    if value is None or value == "":
+        raise RuntimeError(f"Comando '{command.name}' exige um valor (SNMP SET)")
+    if not command.oid:
+        raise RuntimeError(f"Comando '{command.name}' nao tem OID cadastrado - SET real indisponivel")
+    if not asset.ip_address:
+        raise RuntimeError(f"Ativo '{asset.name}' nao tem ip_address cadastrado no CMDB")
+    client = SnmpClient(host=asset.ip_address, port=profile.port or 161)
+    return await client.set(command.oid, value, command.value_type or "string")
+
+
+def _snmp_set_real_liberado(profile: DeviceProtocolProfile, command: DeviceCommand) -> bool:
+    """Trava dupla do ADR-007: SET SNMP real so roda quando o ativo tem
+    is_real=True E allow_real_snmp_set=True (opt-in explicito por ativo).
+    A permissao devices.snmp.set (opt-in por operador) e checada a parte, no
+    endpoint HTTP, antes de chegar aqui."""
+    return (
+        profile.is_real
+        and profile.allow_real_snmp_set
+        and profile.protocol == DeviceProtocol.SNMP
+        and command.kind == DeviceCommandKind.Action
+        and bool(command.oid)
+    )
+
+
+async def _try_run_real(
+    profile: DeviceProtocolProfile, asset: Asset, command: DeviceCommand, value: str | None = None,
+) -> str | None:
+    """Tenta executar de verdade. Retorna None se nao ha "receita" real para
+    esse (protocolo, comando) - nesse caso o chamador cai pro simulado.
+    Uma excecao aqui vira status Error (ha receita real, mas ela falhou)."""
+    if command.kind == DeviceCommandKind.Read:
+        if profile.protocol == DeviceProtocol.SNMP and command.oid:
+            return await _run_real_snmp_get(profile, asset, command)
+        if profile.protocol in (DeviceProtocol.SSH, DeviceProtocol.WinRM) and command.name == "get_status":
+            return await _run_real_get_status(profile.protocol)
+        return None
+
+    # kind == Action - ADR-006: acoes reais continuam bloqueadas por padrao
+    # pra todos os protocolos. Unica excecao (ADR-007): SNMP SET com a trava
+    # dupla satisfeita.
+    if _snmp_set_real_liberado(profile, command):
+        return await _run_real_snmp_set(profile, asset, command, value)
+    return None
+
+
 class ExecuteResultOut(BaseModel):
     id: str
     command_name: str
     status: str
     output: str | None
     executed_at: datetime
+
+
+class ExecuteCommandIn(BaseModel):
+    value: str | None = None
 
 
 @router.post(
@@ -188,8 +269,10 @@ async def execute_device_command(
     command_id: str,
     claims: Annotated[dict, Depends(get_current_claims)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    body: ExecuteCommandIn | None = None,
 ) -> ExecuteResultOut:
     tenant_id = uuid.UUID(claims["tenant_id"])
+    value = body.value if body else None
 
     profile = (
         await session.execute(
@@ -214,9 +297,16 @@ async def execute_device_command(
     if command.requires_permission not in have_perms:
         raise HTTPException(403, "Sem permissao para executar este comando")
 
+    # ADR-007: SNMP SET real exige, alem da permissao do comando (devices.action),
+    # a permissao extra devices.snmp.set - segunda metade da trava dupla (a
+    # primeira, allow_real_snmp_set, e checada dentro de _try_run_real).
+    if profile.is_real and _snmp_set_real_liberado(profile, command) and "devices.snmp.set" not in have_perms:
+        raise HTTPException(403, "Sem permissao para executar SET real (devices.snmp.set)")
+
     try:
-        if profile.is_real and command.name == "get_status":
-            output = await _run_real_get_status(profile.protocol)
+        real_output = await _try_run_real(profile, asset, command, value) if profile.is_real else None
+        if real_output is not None:
+            output = real_output
             status_ = DeviceCommandStatus.Success
         else:
             output = _run_simulated(command.name, asset.name)

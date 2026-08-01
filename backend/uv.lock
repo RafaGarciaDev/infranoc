@@ -129,6 +129,7 @@ dependencies = [
     { name = "psycopg2-binary" },
     { name = "pydantic-settings" },
     { name = "pypsrp" },
+    { name = "pysnmp" },
     { name = "python-jose", extra = ["cryptography"] },
     { name = "python-multipart" },
     { name = "redis" },
@@ -159,6 +160,7 @@ requires-dist = [
     { name = "psycopg2-binary", specifier = ">=2.9.12" },
     { name = "pydantic-settings", specifier = ">=2.14.2" },
     { name = "pypsrp", specifier = ">=0.9.1" },
+    { name = "pysnmp", specifier = ">=6.1" },
     { name = "python-jose", extras = ["cryptography"], specifier = ">=3.5.0" },
     { name = "python-multipart", specifier = ">=0.0.32" },
     { name = "redis", specifier = ">=8.0.1" },
@@ -1368,6 +1370,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e8/bb/e64c311746a4e6d0a5baea4da826a9d06ea997eed50d3209041722a99dc3/pypsrp-0.9.1.tar.gz", hash = "sha256:3ad41285739d5f8107dd8277ae00e86ee44153aae5e82fb578ac8048307e0d12", size = 399329, upload-time = "2026-03-16T03:47:40.166Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d1/6b/441a1ebd4a5975566b0d32be477cd6ec65e3962938e82ed499690ac82e1c/pypsrp-0.9.1-py3-none-any.whl", hash = "sha256:1217b03397589f8e77c98dc9d2a4af2abc34a89ccc15efd4b6758ec76eb1bb7d", size = 92415, upload-time = "2026-03-16T03:47:38.345Z" },
+]
+
+[[package]]
+name = "pysnmp"
+version = "7.1.28"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyasn1" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ee/c3/6e7a0e32d6ac94c1465a93dd4826be526a12f26928eed5ee590abfb207d8/pysnmp-7.1.28.tar.gz", hash = "sha256:6b837f1e90a9abb01ea21a1bbf222e6ba67199e6d1bdc4f7083a333a053ed1fc", size = 268283, upload-time = "2026-07-31T13:34:07.082Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0b/14/79d0c4d338fef4a0911f4d3d3eb9fe9b027ebe4399cc4e41dc3e001c3245/pysnmp-7.1.28-py3-none-any.whl", hash = "sha256:417559de9e35e283882c80913897489554e98a388b2a77b6e1014ea8257cfe1b", size = 355211, upload-time = "2026-07-31T13:34:05.742Z" },
 ]
 
 [[package]]

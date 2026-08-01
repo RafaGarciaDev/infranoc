@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     linux_ssh_user: str = "labadmin"
     linux_ssh_password: str = ""          # env INFRANOC_LINUX_SSH_PASSWORD
 
+    # SNMP (extensao real da Fase 9L - ver ADR-007). Sem host fixo: o alvo
+    # vem do Asset.ip_address de cada dispositivo de rede.
+    snmp_community: str = "public"          # env INFRANOC_SNMP_COMMUNITY (v2c)
+
 
     # Peppermint (Fase 6b) - login via email/senha; token expira rapido, sem API key estatica
     peppermint_url: str = "http://localhost:5003"

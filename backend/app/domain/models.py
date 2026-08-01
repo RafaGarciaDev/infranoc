@@ -587,6 +587,8 @@ class DeviceProtocolProfile(Base, AuditMixin):
     is_real: Mapped[bool] = mapped_column(Boolean, default=False)
     credential_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
     port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # ADR-007: opt-in explicito por ativo para SNMP SET real, independente de is_real.
+    allow_real_snmp_set: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class DeviceCommand(Base):
@@ -603,6 +605,10 @@ class DeviceCommand(Base):
     name: Mapped[str] = mapped_column(String(64))
     kind: Mapped[DeviceCommandKind] = mapped_column(SQLEnum(DeviceCommandKind, name="device_command_kind"))
     requires_permission: Mapped[str] = mapped_column(String(64), default="devices.read")
+    # OID SNMP real associado a este comando (null para SSH/WinRM e para comandos
+    # sem execucao real, ex: "restart" - sem OID padrao seguro de reboot).
+    oid: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    value_type: Mapped[str | None] = mapped_column(String(16), nullable=True)  # "string"|"int"|"gauge"|"unsigned"
 
 
 class DeviceCommandExecution(Base, AuditMixin):
