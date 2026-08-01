@@ -3,6 +3,13 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import {
+  LayoutDashboard, MonitorCheck, AlertTriangle, LineChart, Ticket,
+  Users, FolderTree, UsersRound, Monitor, ShieldCheck, Layers,
+  Server, Archive, Terminal, Cpu, Network, KeyRound, Plug,
+  ShieldAlert, Shield, Bot, BookOpen, ExternalLink, Sun, Moon, LogOut,
+  type LucideIcon,
+} from "lucide-react";
 import { clearToken, getToken } from "@/lib/api";
 
 type Theme = "dark" | "light";
@@ -10,35 +17,68 @@ type Theme = "dark" | "light";
 type NavEntry = {
   href: string;
   label: string;
+  icon: LucideIcon;
   requires?: string; // permissao necessaria (opcional)
+  external?: boolean;
 };
 
 const NAV: { section: string; items: NavEntry[] }[] = [
   {
     section: "Operacao",
     items: [
-      { href: "/dashboard", label: "Dashboard" },
-      { href: "/noc", label: "NOC", requires: "alerts.read" },
-      { href: "/alertas", label: "Alertas", requires: "alerts.read" },
-      { href: "/ativos", label: "Ativos", requires: "cmdb.read" },
-      { href: "/chamados", label: "Chamados", requires: "tickets.read" },
-      { href: "/integracoes", label: "Integracoes", requires: "integrations.manage" },
-      { href: "/usuarios", label: "Usuarios (AD)", requires: "ad.read" },
-      { href: "/ad-ous", label: "Estrutura de OUs", requires: "ad.read" },
-      { href: "/ad-grupos", label: "Grupos (AD)", requires: "ad.read" },
-      { href: "/ad-computadores", label: "Computadores (AD)", requires: "ad.read" },
-      { href: "/ad-gpos-sessoes", label: "GPOs e Sessoes RDP", requires: "ad.read" },
-      { href: "/ad-bulk", label: "Operacoes em Massa", requires: "ad.write" },
-      { href: "/observabilidade", label: "Observabilidade", requires: "obs.read" },
-      { href: "/ia", label: "Assistente IA", requires: "ai.chat" },
-      { href: "/wiki", label: "Base de Conhecimento", requires: "wiki.read" },
-      { href: "/hub-acessos", label: "Hub de Acessos", requires: "cmdb.read" },
-      { href: "/linux-toolkit", label: "Linux Ops + Toolkit", requires: "linux.read" },
-      { href: "/backup", label: "Backup", requires: "backup.read" },
-      { href: "/security", label: "Seguranca (SIEM)", requires: "security.read" },
-      { href: "/vpn", label: "VPN", requires: "vpn.read" },
-      { href: "/mapa-rede", label: "Mapa de Rede", requires: "cmdb.read" },
-      { href: "/dispositivos", label: "Dispositivos", requires: "devices.read" },
+      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/noc", label: "NOC", icon: MonitorCheck, requires: "alerts.read" },
+      { href: "/alertas", label: "Alertas", icon: AlertTriangle, requires: "alerts.read" },
+      { href: "/observabilidade", label: "Observabilidade", icon: LineChart, requires: "obs.read" },
+      { href: "/chamados", label: "Chamados", icon: Ticket, requires: "tickets.read" },
+    ],
+  },
+  {
+    section: "Identidade (AD)",
+    items: [
+      { href: "/usuarios", label: "Usuarios (AD)", icon: Users, requires: "ad.read" },
+      { href: "/ad-ous", label: "Estrutura de OUs", icon: FolderTree, requires: "ad.read" },
+      { href: "/ad-grupos", label: "Grupos (AD)", icon: UsersRound, requires: "ad.read" },
+      { href: "/ad-computadores", label: "Computadores (AD)", icon: Monitor, requires: "ad.read" },
+      { href: "/ad-gpos-sessoes", label: "GPOs e Sessoes RDP", icon: ShieldCheck, requires: "ad.read" },
+      { href: "/ad-bulk", label: "Operacoes em Massa", icon: Layers, requires: "ad.write" },
+    ],
+  },
+  {
+    section: "Infraestrutura",
+    items: [
+      { href: "/ativos", label: "Ativos", icon: Server, requires: "cmdb.read" },
+      { href: "/mapa-rede", label: "Mapa de Rede", icon: Network, requires: "cmdb.read" },
+      { href: "/dispositivos", label: "Dispositivos", icon: Cpu, requires: "devices.read" },
+      { href: "/backup", label: "Backup", icon: Archive, requires: "backup.read" },
+      { href: "/linux-toolkit", label: "Linux Ops + Toolkit", icon: Terminal, requires: "linux.read" },
+      { href: "/hub-acessos", label: "Hub de Acessos", icon: KeyRound, requires: "cmdb.read" },
+      { href: "/integracoes", label: "Integracoes", icon: Plug, requires: "integrations.manage" },
+    ],
+  },
+  {
+    section: "Seguranca",
+    items: [
+      { href: "/security", label: "Seguranca (SIEM)", icon: ShieldAlert, requires: "security.read" },
+      { href: "/vpn", label: "VPN", icon: Shield, requires: "vpn.read" },
+    ],
+  },
+  {
+    section: "Conhecimento",
+    items: [
+      { href: "/ia", label: "Assistente IA", icon: Bot, requires: "ai.chat" },
+      { href: "/wiki", label: "Base de Conhecimento", icon: BookOpen, requires: "wiki.read" },
+    ],
+  },
+  {
+    section: "Portal (teste)",
+    items: [
+      {
+        href: "/portal/login",
+        label: "Portal (visao do funcionario)",
+        icon: ExternalLink,
+        external: true,
+      },
     ],
   },
 ];
@@ -101,12 +141,29 @@ export default function Shell({
           </div>
         </div>
 
-        {NAV.map((group) => (
-          <div key={group.section}>
-            <div className="nav-section">{group.section}</div>
-            {group.items
-              .filter((it) => !it.requires || perms.includes(it.requires))
-              .map((it) => {
+        {NAV.map((group) => {
+          const visibleItems = group.items.filter((it) => !it.requires || perms.includes(it.requires));
+          if (visibleItems.length === 0) return null;
+          return (
+            <div key={group.section}>
+              <div className="nav-section">{group.section}</div>
+              {visibleItems.map((it) => {
+                const Icon = it.icon;
+                if (it.external) {
+                  return (
+                    <a
+                      key={it.href}
+                      href={it.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="nav-item"
+                      title="Abre em nova aba (evita substituir sua sessao de admin)"
+                    >
+                      <span className="nav-icon"><Icon size={17} strokeWidth={2} /></span>
+                      <span>{it.label}</span>
+                    </a>
+                  );
+                }
                 const active = pathname === it.href || pathname.startsWith(it.href + "/");
                 return (
                   <Link
@@ -114,25 +171,14 @@ export default function Shell({
                     href={it.href}
                     className={`nav-item ${active ? "active" : ""}`}
                   >
-                    <span className="nav-icon" />
+                    <span className="nav-icon"><Icon size={17} strokeWidth={2} /></span>
                     <span>{it.label}</span>
                   </Link>
                 );
               })}
-          </div>
-        ))}
-        <div className="nav-section">Testes</div>
-        
-          <a
-          href="/portal/login"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="nav-item"
-          title="Abre em nova aba (evita substituir sua sessao de admin)"
-        >
-          <span className="nav-icon" />
-          <span>Portal (visao do funcionario)</span>
-        </a>
+            </div>
+          );
+        })}
       </aside>
 
       <div className="content">
@@ -144,10 +190,12 @@ export default function Shell({
               online
             </span>
             <span className="app-username">{name}</span>
-            <button className="logout-btn" onClick={toggleTheme}>
+            <button className="logout-btn btn-ghost" onClick={toggleTheme}>
+              {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
               {theme === "dark" ? "Tema claro" : "Tema escuro"}
             </button>
-            <button className="logout-btn" onClick={logout}>
+            <button className="logout-btn btn-ghost" onClick={logout}>
+              <LogOut size={15} />
               Sair
             </button>
           </div>

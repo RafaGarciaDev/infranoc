@@ -210,7 +210,7 @@ export default function VpnPage() {
               <td className="alert-name">{u.name}</td>
               <td style={{ fontFamily: "monospace", fontSize: 12 }}>{u.internal_ip}</td>
               <td>
-                <span className={!u.active ? "badge-status-firing" : u.stale ? "badge badge-cat" : "badge-status-resolved"}>
+                <span className={`badge ${!u.active ? "badge-status-firing" : u.stale ? "badge-cat" : "badge-status-resolved"}`}>
                   {!u.active ? "revogado" : u.stale ? "inativa" : "ativo"}
                 </span>
               </td>
@@ -253,7 +253,7 @@ export default function VpnPage() {
               <td style={{ fontSize: 12, color: "var(--fg-2)" }}>{fmtDate(s.last_handshake)}</td>
               <td style={{ fontSize: 12 }}>{fmtBytes(s.bytes_rx)} / {fmtBytes(s.bytes_tx)}</td>
               <td>
-                <span className={s.stale ? "badge badge-cat" : "badge-status-resolved"}>
+                <span className={`badge ${s.stale ? "badge-cat" : "badge-status-resolved"}`}>
                   {s.stale ? "sem handshake recente" : "ok"}
                 </span>
               </td>
