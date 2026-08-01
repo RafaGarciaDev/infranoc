@@ -146,7 +146,7 @@ function AtivosInner() {
   const hasNext = offset + PAGE_SIZE < total;
 
   return (
-    <Shell title="Ativos (CMDB)">
+    <Shell title="Ativos (CMDB - dados simulados)">
       <div className="cmdb-filters">
         <input
           placeholder="Buscar por name, hostname, ip..."

@@ -8,7 +8,7 @@ version: "3.8"
 #
 # Decisoes travadas (Kickoff 6b):
 # - Porta Peppermint UI: 3110 (Loki ja usa 3100)
-# - Segredos: placeholders (lab descartavel) - trocar antes de expor publicamente
+# - Segredos: vem de INFRANOC_PEPPERMINT_DB_PASSWORD / INFRANOC_PEPPERMINT_SECRET no .env raiz (nao commitar)
 
 services:
   peppermint_postgres:
@@ -19,7 +19,7 @@ services:
       - peppermint_pgdata:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: peppermint
-      POSTGRES_PASSWORD: change_this_to_a_long_random_string
+      POSTGRES_PASSWORD: ${INFRANOC_PEPPERMINT_DB_PASSWORD:?defina INFRANOC_PEPPERMINT_DB_PASSWORD no .env}
       POSTGRES_DB: peppermint
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U peppermint -d peppermint"]
@@ -42,10 +42,10 @@ services:
       - "5003:5003"   # API
     environment:
       DB_USERNAME: "peppermint"
-      DB_PASSWORD: "change_this_to_a_long_random_string"
+      DB_PASSWORD: "${INFRANOC_PEPPERMINT_DB_PASSWORD:?defina INFRANOC_PEPPERMINT_DB_PASSWORD no .env}"
       DB_HOST: "peppermint_postgres"
-      DATABASE_URL: "postgresql://peppermint:change_this_to_a_long_random_string@peppermint_postgres:5432/peppermint"
-      SECRET: "peppermint_secret_change_me"
+      DATABASE_URL: "postgresql://peppermint:${INFRANOC_PEPPERMINT_DB_PASSWORD:?defina INFRANOC_PEPPERMINT_DB_PASSWORD no .env}@peppermint_postgres:5432/peppermint"
+      SECRET: "${INFRANOC_PEPPERMINT_SECRET:?defina INFRANOC_PEPPERMINT_SECRET no .env}"
 
 volumes:
   peppermint_pgdata:

@@ -6,7 +6,7 @@ version: "3.8"
 #
 # Decisoes travadas (Kickoff 6b):
 # - Porta Peppermint UI: 3110 (Loki ja usa 3100)
-# - Segredos: placeholders (lab descartavel) - trocar antes de expor publicamente
+# - Segredos: vem do .env raiz (INFRANOC_PEPPERMINT_*/INFRANOC_VIKUNJA_*), nao commitar
 # - Vikunja entra depois, em bloco separado neste mesmo arquivo
 
 services:
@@ -18,7 +18,7 @@ services:
       - peppermint_pgdata:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: peppermint
-      POSTGRES_PASSWORD: change_this_to_a_long_random_string
+      POSTGRES_PASSWORD: ${INFRANOC_PEPPERMINT_DB_PASSWORD:?defina INFRANOC_PEPPERMINT_DB_PASSWORD no .env}
       POSTGRES_DB: peppermint
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U peppermint -d peppermint"]
@@ -38,9 +38,9 @@ services:
       - "5003:5003"   # API
     environment:
       DB_USERNAME: "peppermint"
-      DB_PASSWORD: "change_this_to_a_long_random_string"
+      DB_PASSWORD: "${INFRANOC_PEPPERMINT_DB_PASSWORD:?defina INFRANOC_PEPPERMINT_DB_PASSWORD no .env}"
       DB_HOST: "peppermint_postgres"
-      SECRET: "peppermint_secret_change_me"
+      SECRET: "${INFRANOC_PEPPERMINT_SECRET:?defina INFRANOC_PEPPERMINT_SECRET no .env}"
       BASE_URL: "http://localhost:3110"
 
   # ---------------------------------------------------------------
@@ -58,7 +58,7 @@ services:
       - vikunja_pgdata:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: vikunja
-      POSTGRES_PASSWORD: change_this_to_a_long_random_string
+      POSTGRES_PASSWORD: ${INFRANOC_VIKUNJA_DB_PASSWORD:?defina INFRANOC_VIKUNJA_DB_PASSWORD no .env}
       POSTGRES_DB: vikunja
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U vikunja -d vikunja"]
@@ -79,11 +79,11 @@ services:
     environment:
       VIKUNJA_SERVICE_PUBLICURL: "http://localhost:3456"
       VIKUNJA_DATABASE_HOST: "vikunja_postgres"
-      VIKUNJA_DATABASE_PASSWORD: "change_this_to_a_long_random_string"
+      VIKUNJA_DATABASE_PASSWORD: "${INFRANOC_VIKUNJA_DB_PASSWORD:?defina INFRANOC_VIKUNJA_DB_PASSWORD no .env}"
       VIKUNJA_DATABASE_TYPE: "postgres"
       VIKUNJA_DATABASE_USER: "vikunja"
       VIKUNJA_DATABASE_DATABASE: "vikunja"
-      VIKUNJA_SERVICE_SECRET: "vikunja_secret_change_me"
+      VIKUNJA_SERVICE_SECRET: "${INFRANOC_VIKUNJA_SECRET:?defina INFRANOC_VIKUNJA_SECRET no .env}"
     volumes:
       - vikunja_files:/app/vikunja/files
 

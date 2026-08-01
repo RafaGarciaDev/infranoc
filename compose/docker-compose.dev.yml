@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: infranoc
       POSTGRES_USER: infranoc
-      POSTGRES_PASSWORD: infranoc
+      POSTGRES_PASSWORD: ${INFRANOC_DB_PASSWORD:?defina INFRANOC_DB_PASSWORD no .env}
     ports: ["5432:5432"]
     volumes: [pg:/var/lib/postgresql/data]
     healthcheck:
@@ -25,7 +25,7 @@ services:
     env_file:
       - ../.env
     environment:
-      INFRANOC_DATABASE_URL: postgresql+asyncpg://infranoc:infranoc@postgres:5432/infranoc
+      INFRANOC_DATABASE_URL: postgresql+asyncpg://infranoc:${INFRANOC_DB_PASSWORD:?defina INFRANOC_DB_PASSWORD no .env}@postgres:5432/infranoc
       INFRANOC_REDIS_URL: redis://redis:6379/0
       INFRANOC_PROMETHEUS_URL: http://prometheus:9090
     ports:
