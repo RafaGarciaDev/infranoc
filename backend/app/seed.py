@@ -54,6 +54,7 @@ PERMISSIONS = [
     ("vpn.write", "Criar/revogar usuarios VPN"),
     ("devices.read", "Ver perfis de protocolo e historico de comandos de dispositivos"),
     ("devices.action", "Executar comandos de acao em dispositivos (reiniciar, resetar, etc.)"),
+    ("devices.snmp.set", "Executar SNMP SET real em ativos com allow_real_snmp_set habilitado (ADR-007)"),
 ]
 
 

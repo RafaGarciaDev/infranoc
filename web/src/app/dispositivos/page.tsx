@@ -26,6 +26,7 @@ export default function DispositivosPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<{ commandName: string; status: string; output: string | null } | null>(null);
+  const [pendingValues, setPendingValues] = useState<Record<string, string>>({});
 
   useEffect(() => {
     (async () => {
@@ -63,7 +64,8 @@ export default function DispositivosPage() {
     setBusy(cmd.id);
     setError(null);
     try {
-      const result = await executeDeviceCommand(selected.asset_id, cmd.id);
+      const value = cmd.value_type ? pendingValues[cmd.id] : undefined;
+      const result = await executeDeviceCommand(selected.asset_id, cmd.id, value);
       setLastResult({ commandName: result.command_name, status: result.status, output: result.output });
       const execs = await listDeviceExecutions(selected.asset_id);
       setExecutions(execs);
@@ -129,15 +131,24 @@ export default function DispositivosPage() {
               ) : (
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
                   {commands.map((c) => (
-                    <button
-                      key={c.id}
-                      className="logout-btn"
-                      disabled={busy === c.id}
-                      onClick={() => handleExecute(c)}
-                    >
-                      {busy === c.id ? "Executando..." : c.name}
-                      {c.kind === "action" ? " \u26a0" : ""}
-                    </button>
+                    <div key={c.id} style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                      {c.value_type && (
+                        <input
+                          placeholder="valor"
+                          value={pendingValues[c.id] ?? ""}
+                          onChange={(e) => setPendingValues((p) => ({ ...p, [c.id]: e.target.value }))}
+                          style={{ width: 70 }}
+                        />
+                      )}
+                      <button
+                        className="logout-btn"
+                        disabled={busy === c.id}
+                        onClick={() => handleExecute(c)}
+                      >
+                        {busy === c.id ? "Executando..." : c.name}
+                        {c.kind === "action" ? " \u26a0" : ""}
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}

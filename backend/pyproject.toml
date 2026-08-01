@@ -17,6 +17,7 @@ dependencies = [
     "psycopg2-binary>=2.9.12",
     "pydantic-settings>=2.14.2",
     "pypsrp>=0.9.1",
+    "pysnmp>=6.1",
     "python-jose[cryptography]>=3.5.0",
     "python-multipart>=0.0.32",
     "redis>=8.0.1",

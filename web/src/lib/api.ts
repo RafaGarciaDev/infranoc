@@ -1198,6 +1198,7 @@ export type DeviceAsset = {
   protocol: string;
   is_real: boolean;
   port: number | null;
+  allow_real_snmp_set: boolean;
 };
 
 export async function listDeviceAssets(onlyReal = false): Promise<DeviceAsset[]> {
@@ -1211,6 +1212,8 @@ export type DeviceCommandItem = {
   name: string;
   kind: "read" | "action";
   requires_permission: string;
+  oid: string | null;
+  value_type: string | null;
 };
 
 export async function listDeviceCommands(assetId: string): Promise<DeviceCommandItem[]> {
@@ -1227,8 +1230,17 @@ export type DeviceExecuteResult = {
   executed_at: string;
 };
 
-export async function executeDeviceCommand(assetId: string, commandId: string): Promise<DeviceExecuteResult> {
-  const res = await apiFetch(`/devices/assets/${assetId}/commands/${commandId}/execute`, { method: "POST" });
+export async function executeDeviceCommand(
+  assetId: string,
+  commandId: string,
+  value?: string,
+): Promise<DeviceExecuteResult> {
+  const res = await apiFetch(`/devices/assets/${assetId}/commands/${commandId}/execute`, {
+    method: "POST",
+    ...(value !== undefined
+      ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ value }) }
+      : {}),
+  });
   if (!res.ok) throw new Error(`Falha ao executar comando (HTTP ${res.status}).`);
   return res.json();
 }
